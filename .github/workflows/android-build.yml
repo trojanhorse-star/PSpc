@@ -1,14 +1,16 @@
 name: Android build check
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "feat/**"]
     paths:
       - "android/**"
+      - "docs/architecture/**"
       - ".github/workflows/android-build.yml"
   pull_request:
     branches: [main]
     paths:
       - "android/**"
+      - "docs/architecture/**"
       - ".github/workflows/android-build.yml"
   workflow_dispatch:
 jobs:
@@ -23,6 +25,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Run protocol unit tests
+        working-directory: android
+        run: gradle testDebugUnitTest
       - name: Assemble debug APK
         working-directory: android
         run: gradle assembleDebug
