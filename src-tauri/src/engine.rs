@@ -142,7 +142,8 @@ fn file_sha256(path: &Path) -> Result<String, String> {
     Ok(hex::encode(digest.finalize()))
 }
 fn safe_name(name: &str) -> String {
-    let base = name.replace('\\', "/").rsplit('/').next().unwrap_or("received_file");
+    let normalized = name.replace('\\', "/");
+    let base = normalized.rsplit('/').next().unwrap_or("received_file");
     let clean: String = base.chars().map(|c| if c.is_control() || "<>:\"/\\|?*".contains(c) { '_' } else { c }).collect();
     let clean = clean.trim().trim_matches('.');
     if clean.is_empty() { "received_file".into() } else { clean.chars().take(160).collect() }
@@ -264,7 +265,7 @@ async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &
         let mut full_hash = Sha256::new();
         while offset < entry.size_bytes {
             let request: ControlMessage = tokio::time::timeout(Duration::from_secs(60), read_json(stream)).await.map_err(|_| "chunk request timed out")??;
-            let chunk = match request { ControlMessage::ChunkRequestMessage(c) => c, _ => return Err("expected chunk request".into()) };
+            let chunk = match request { ControlMessage::ChunkRequest(c) => c, _ => return Err("expected chunk request".into()) };
             if chunk.transfer_id != offer.transfer_id || chunk.file_id != entry.file_id || chunk.offset_bytes != offset ||
                 chunk.length_bytes == 0 || chunk.length_bytes as u64 > protocol::MAX_CHUNK_BYTES as u64 ||
                 chunk.length_bytes as u64 > entry.size_bytes - offset {
@@ -277,7 +278,7 @@ async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &
             output.write_all(&bytes).await.map_err(|e| e.to_string())?;
             full_hash.update(&bytes);
             offset += bytes.len() as u64;
-            write_json(stream, &ControlMessage::ChunkAcknowledgementMessage(crate::protocol::ChunkAcknowledgement {
+            write_json(stream, &ControlMessage::ChunkAcknowledgement(crate::protocol::ChunkAcknowledgement {
                 transfer_id: offer.transfer_id.clone(), file_id: entry.file_id.clone(), next_offset_bytes: offset, chunk_sha256: digest
             })).await?;
         }
@@ -361,11 +362,11 @@ pub async fn send_files(app: AppHandle, address: String, port: u16, expected_fin
                 transfer_id: offer.transfer_id.clone(), file_id: entry.file_id.clone(), offset_bytes: offset,
                 length_bytes: bytes.len() as u32, chunk_sha256: chunk_hash.clone()
             };
-            write_json(&mut stream, &ControlMessage::ChunkRequestMessage(request)).await?;
+            write_json(&mut stream, &ControlMessage::ChunkRequest(request)).await?;
             stream.write_all(&bytes).await.map_err(|e| e.to_string())?;
             let ack: ControlMessage = read_json(&mut stream).await?;
             match ack {
-                ControlMessage::ChunkAcknowledgementMessage(a) if a.transfer_id == offer.transfer_id && a.file_id == entry.file_id &&
+                ControlMessage::ChunkAcknowledgement(a) if a.transfer_id == offer.transfer_id && a.file_id == entry.file_id &&
                     a.next_offset_bytes == offset + bytes.len() as u64 && a.chunk_sha256 == chunk_hash => {}
                 _ => return Err("receiver chunk acknowledgement mismatch".into()),
             }
