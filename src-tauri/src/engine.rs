@@ -40,7 +40,7 @@ struct PendingOffer {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ReceiverStatus {
+pub struct ReceiverStatus {
     listening: bool,
     port: u16,
     fingerprint: String,
