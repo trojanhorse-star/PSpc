@@ -149,6 +149,7 @@ private fun PlazmaApp(
                         Triple("Home", Icons.Outlined.Home, "Home"),
                         Triple("Files", Icons.Outlined.FolderOpen, "Files"),
                         Triple("Media", Icons.Outlined.Image, "Media"),
+                        Triple("Connect", Icons.Outlined.Wifi, "Connect"),
                         Triple("Activity", Icons.Outlined.History, "Activity"),
                         Triple("Settings", Icons.Outlined.Settings, "Settings")
                     )
@@ -188,6 +189,7 @@ private fun PlazmaApp(
                     "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, onPickMedia, { page = "Files" })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaScreen(pickedFiles, onPickMedia, onRemovePicked)
+                    "Connect" -> AndroidPcConnectScreen(pickedFiles)
                     "Activity" -> InfoScreen("Activity", "Your transfer and import history will appear here.")
                     else -> InfoScreen("Settings", "Choose your receive folder, theme, notifications and trusted devices here in a future update.")
                 }
