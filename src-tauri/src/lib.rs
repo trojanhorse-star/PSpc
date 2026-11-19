@@ -87,6 +87,70 @@ fn discover_peers() -> Result<Vec<DiscoveredPeer>, String> {
     Ok(peers)
 }
 
+
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MediaItem {
+    name: String,
+    path: String,
+    category: String,
+    extension: String,
+    size_bytes: u64,
+    modified_unix: Option<u64>,
+}
+
+#[tauri::command]
+fn scan_media_library() -> Result<Vec<MediaItem>, String> {
+    use std::{collections::VecDeque, env, fs, path::{Path, PathBuf}, time::UNIX_EPOCH};
+    let home = env::var_os("USERPROFILE").or_else(|| env::var_os("HOME"))
+        .map(PathBuf::from).ok_or("Could not determine the current user's home folder")?;
+    let roots = [
+        ("Photos", home.join("Pictures")),
+        ("Videos", home.join("Videos")),
+        ("Music", home.join("Music")),
+    ];
+    let mut items = Vec::new();
+    let mut queue = VecDeque::new();
+    for (category, root) in roots {
+        if root.is_dir() { queue.push_back((root, category, 0usize)); }
+    }
+    let mut visited = 0usize;
+    while let Some((folder, category, depth)) = queue.pop_front() {
+        if depth > 5 || visited >= 5000 { continue; }
+        let entries = match fs::read_dir(&folder) { Ok(entries) => entries, Err(_) => continue };
+        for entry in entries.flatten() {
+            if visited >= 5000 { break; }
+            let path = entry.path();
+            let metadata = match fs::symlink_metadata(&path) { Ok(m) => m, Err(_) => continue };
+            if metadata.file_type().is_symlink() { continue; }
+            if metadata.is_dir() {
+                if depth < 5 { queue.push_back((path, category, depth + 1)); }
+                continue;
+            }
+            if !metadata.is_file() { continue; }
+            visited += 1;
+            let ext = path.extension().and_then(|v| v.to_str()).unwrap_or("").to_ascii_lowercase();
+            let allowed = match category {
+                "Photos" => ["jpg","jpeg","png","gif","webp","bmp","tif","tiff","heic","avif"].contains(&ext.as_str()),
+                "Videos" => ["mp4","m4v","mov","mkv","avi","webm","wmv","mpeg","mpg","3gp"].contains(&ext.as_str()),
+                _ => ["mp3","m4a","aac","wav","flac","ogg","opus","wma","aiff"].contains(&ext.as_str()),
+            };
+            if !allowed { continue; }
+            items.push(MediaItem {
+                name: path.file_name().and_then(|v| v.to_str()).unwrap_or("Media file").to_owned(),
+                path: path.to_string_lossy().into_owned(),
+                category: category.to_owned(),
+                extension: ext,
+                size_bytes: metadata.len(),
+                modified_unix: metadata.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok()).map(|d| d.as_secs()),
+            });
+        }
+    }
+    items.sort_by(|a,b| b.modified_unix.cmp(&a.modified_unix).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())));
+    Ok(items)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -94,6 +158,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_status,
             discover_peers,
+            scan_media_library,
             engine::start_receiver,
             engine::stop_receiver,
             engine::respond_to_transfer_offer,
