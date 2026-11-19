@@ -26,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -35,10 +36,10 @@ import androidx.compose.ui.unit.sp
 import java.io.File
 import java.util.Locale
 
-private val Night = Color(0xFF070B18)
-private val Panel = Color(0xFF111A30)
-private val Cyan = Color(0xFF19D8FF)
-private val Violet = Color(0xFFB34BFF)
+private val Night = Color(0xFF060A16)
+private val Panel = Color(0xFF14213A)
+private val Cyan = Color(0xFF69E8FF)
+private val Violet = Color(0xFFAA91FF)
 private val Muted = Color(0xFF9AA8C4)
 
 data class PickedFile(val name: String, val uri: Uri, val mime: String?, val size: Long)
@@ -146,7 +147,7 @@ private fun PlazmaApp(
         Scaffold(
             containerColor = Night,
             bottomBar = {
-                NavigationBar(containerColor = Color(0xFF0C1325), contentColor = Muted) {
+                NavigationBar(containerColor = Color(0xFF101A30), contentColor = Muted, tonalElevation = 12.dp) {
                     val tabs = listOf(
                         Triple("Home", Icons.Outlined.Home, "Home"),
                         Triple("Files", Icons.Outlined.FolderOpen, "Files"),
@@ -169,10 +170,10 @@ private fun PlazmaApp(
                 }
             }
         ) { padding ->
-            Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 18.dp)) {
+            Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF101B34), Night, Color(0xFF080D1C)))).padding(padding).padding(horizontal = 18.dp)) {
                 Spacer(Modifier.height(18.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(
+                    Box(Modifier.size(44.dp).shadow(12.dp, RoundedCornerShape(15.dp)).clip(RoundedCornerShape(15.dp)).background(
                         Brush.linearGradient(listOf(Cyan, Color(0xFF285BFF), Violet))
                     ), contentAlignment = Alignment.Center) {
                         Text("P↔", color = Color.White, fontWeight = FontWeight.Black, fontSize = 18.sp)
@@ -189,7 +190,7 @@ private fun PlazmaApp(
                 }
                 Spacer(Modifier.height(22.dp))
                 when (page) {
-                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, onPickMedia, { page = "Files" })
+                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, onPickMedia, { page = "Files" }, { page = "TransferModes" })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaScreen(pickedFiles, onPickMedia, onRemovePicked)
                     "TransferModes" -> TransferModeChooser(
@@ -207,11 +208,11 @@ private fun PlazmaApp(
 }
 
 @Composable
-private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, onMedia: () -> Unit, onReceived: () -> Unit) {
+private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, onMedia: () -> Unit, onReceived: () -> Unit, onTransfer: () -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 22.dp)) {
         item {
-            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(
-                Brush.linearGradient(listOf(Color(0xFF073D65), Color(0xFF24205B), Color(0xFF40175A)))
+            Box(Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(
+                Brush.linearGradient(listOf(Color(0xFF12617A), Color(0xFF293B79), Color(0xFF542B82), Color(0xFF172D50)))
             ).padding(22.dp)) {
                 Column {
                     Text("YOUR PERSONAL TRANSFER SPACE", color = Color(0xFFB5EFFF), fontSize = 10.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
@@ -242,16 +243,18 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, o
             }
         }
         item {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Panel).padding(16.dp)) {
+            Column(Modifier.fillMaxWidth().shadow(9.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF1C3151), Color(0xFF101B30)))).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Wifi, contentDescription = null, tint = Cyan)
                     Spacer(Modifier.width(9.dp))
                     Text("Device connection", fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("PC and Android device discovery is the next connection milestone. Your files stay on this phone until a transfer connection is available.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
+                Text("Send files to a nearby Plazma S PC over the same Wi-Fi network. Choose a PC, verify its identity and approve the transfer on the receiving computer.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                 Spacer(Modifier.height(10.dp))
-                Text("NO CLOUD UPLOAD · NO APP MIGRATION", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Button(onClick = onTransfer, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A7892), contentColor = Color.White)) { Icon(Icons.Outlined.Wifi, contentDescription = null); Spacer(Modifier.width(7.dp)); Text("Find a nearby PC", fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.height(9.dp))
+                Text("SAME WI-FI · ENCRYPTED CONNECTION · APPROVAL REQUIRED", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
             }
         }
     }
@@ -294,7 +297,7 @@ private fun MediaScreen(files: List<PickedFile>, onPick: () -> Unit, onRemove: (
 
 @Composable
 private fun FileRow(name: String, size: Long, detail: String, onRemove: (() -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Panel).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().shadow(7.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Color(0xFF1A2C49), Color(0xFF101B30)))).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Color(0xFF172B49)), contentAlignment = Alignment.Center) {
             Icon(Icons.Outlined.FolderOpen, null, tint = Cyan)
         }
@@ -309,7 +312,7 @@ private fun FileRow(name: String, size: Long, detail: String, onRemove: (() -> U
 
 @Composable
 private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(17.dp)).background(Panel).padding(16.dp)) {
+    Column(modifier.shadow(10.dp, RoundedCornerShape(17.dp)).clip(RoundedCornerShape(17.dp)).background(Brush.linearGradient(listOf(Color(0xFF1D3556), Color(0xFF111D34)))).padding(16.dp)) {
         Text(value, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Cyan)
         Text(label, color = Muted, fontSize = 11.sp)
     }
@@ -317,7 +320,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
 
 @Composable
 private fun ActionCard(title: String, subtitle: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(onClick = onClick, modifier = modifier, color = Panel, shape = RoundedCornerShape(17.dp)) {
+    Surface(onClick = onClick, modifier = modifier.shadow(10.dp, RoundedCornerShape(17.dp)), color = Color(0xFF182A48), shape = RoundedCornerShape(17.dp), tonalElevation = 6.dp) {
         Column(Modifier.padding(15.dp)) {
             Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             Spacer(Modifier.height(5.dp))

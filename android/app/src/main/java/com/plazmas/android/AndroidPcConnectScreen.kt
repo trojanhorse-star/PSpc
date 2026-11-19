@@ -13,9 +13,13 @@ import com.plazmas.android.transfer.AndroidPcTransferClient
 import com.plazmas.android.transfer.DiscoveredPc
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 
-private val ConnectCyan = Color(0xFF19D8FF)
-private val ConnectPanel = Color(0xFF111A30)
+private val ConnectCyan = Color(0xFF69E8FF)
+private val ConnectPanel = Color(0xFF182A48)
 private val ConnectMuted = Color(0xFF9AA8C4)
 
 @Composable
@@ -34,7 +38,7 @@ fun AndroidPcConnectScreen(files: List<PickedFile>) {
         onDispose { client.stopDiscovery() }
     }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(Brush.verticalGradient(listOf(Color(0xFF172846), Color(0xFF0B1427)))).padding(12.dp)) {
         Text("ANDROID → PC", color = ConnectCyan, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text("Send selected files, photos, videos and audio to a Plazma S PC. APKs and app packages are not transferable.", color = ConnectMuted, style = MaterialTheme.typography.bodySmall)
@@ -74,7 +78,7 @@ fun AndroidPcConnectScreen(files: List<PickedFile>) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(peers, key = { "${it.host}:${it.port}" }) { peer ->
                 var confirmed by remember(peer.fingerprint) { mutableStateOf(false) }
-                Card(colors = CardDefaults.cardColors(containerColor = ConnectPanel)) {
+                Card(shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(defaultElevation = 8.dp), colors = CardDefaults.cardColors(containerColor = ConnectPanel)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
                         Text(peer.serviceName, fontWeight = FontWeight.Bold)
                         Text("${peer.platform} · ${peer.host}:${peer.port}", color = ConnectMuted, style = MaterialTheme.typography.bodySmall)
