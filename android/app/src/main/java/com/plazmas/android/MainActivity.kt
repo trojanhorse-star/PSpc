@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
         uris.forEach { uri ->
             runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             val meta = readMetadata(uri)
-            if (pickedFiles.none { it.uri == uri }) pickedFiles.add(meta)
+            if (isAllowedTransferFile(meta) && pickedFiles.none { it.uri == uri }) pickedFiles.add(meta)
         }
     }
 
@@ -139,7 +139,6 @@ private fun PlazmaApp(
     onRemovePicked: (PickedFile) -> Unit
 ) {
     var page by remember { mutableStateOf("Home") }
-    var transferMode by remember { mutableStateOf("chooser") }
     MaterialTheme(colorScheme = darkColorScheme(
         primary = Cyan, secondary = Violet, background = Night, surface = Panel,
         onBackground = Color.White, onSurface = Color.White
@@ -184,7 +183,7 @@ private fun PlazmaApp(
                         Text("ANDROID", fontSize = 9.sp, color = Cyan, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { page = "TransferModes"; transferMode = "chooser" }) {
+                    IconButton(onClick = { page = "TransferModes" }) {
                         Icon(Icons.Outlined.Add, contentDescription = "Choose transfer mode", tint = Cyan)
                     }
                 }
