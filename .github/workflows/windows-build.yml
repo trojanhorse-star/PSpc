@@ -1,4 +1,4 @@
-name: Windows build check
+name: Windows build and package
 on:
   push:
     branches: [main, "feature/**", "feat/**"]
@@ -28,7 +28,6 @@ jobs:
           pixels = bytearray()
           for y in range(height - 1, -1, -1):
               for x in range(width):
-                  # Plazma purple tile with a simple white transfer mark.
                   mark = (8 <= x <= 12 and 6 <= y <= 25) or (12 <= x <= 23 and 6 <= y <= 10) or (19 <= x <= 23 and 10 <= y <= 16) or (12 <= x <= 19 and 16 <= y <= 20)
                   pixels += bytes((245, 245, 255, 255) if mark else (112, 48, 190, 255))
           mask = bytes(((width + 31) // 32) * 4 * height)
@@ -38,7 +37,22 @@ jobs:
           with open("src-tauri/icons/icon.ico", "wb") as f:
               f.write(struct.pack("<HHH", 0, 1, 1) + entry + dib)
           '@ | python -
+      - name: Install Windows bundler toolchains
+        shell: pwsh
+        run: |
+          choco install wixtoolset nsis -y --no-progress
       - name: Check native Rust application
         run: cargo check --manifest-path src-tauri/Cargo.toml
-      - name: Test transfer protocol validation
+      - name: Test transfer engine
         run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Build MSI and NSIS installers
+        run: npm run tauri -- build --bundles msi,nsis
+      - name: Publish downloadable Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: Plazma-S-PC-Windows-Installers
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 30
