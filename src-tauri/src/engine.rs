@@ -407,3 +407,26 @@ pub async fn send_files(app: AppHandle, address: String, port: u16, expected_fin
         _ => Err("receiver did not confirm completed transfer".into()),
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::safe_name;
+
+    #[test]
+    fn strips_path_components_and_reserved_characters() {
+        assert_eq!(safe_name("..\\\\private\\\\report?.txt"), "report_.txt");
+    }
+
+    #[test]
+    fn empty_or_dot_names_become_safe_fallback() {
+        assert_eq!(safe_name("../"), "received_file");
+        assert_eq!(safe_name("..."), "received_file");
+    }
+
+    #[test]
+    fn long_names_are_bounded() {
+        let name = "a".repeat(300);
+        assert_eq!(safe_name(&name).len(), 160);
+    }
+}
