@@ -1,0 +1,68 @@
+name: Publish signed Plazma S PC update
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+jobs:
+  release:
+    if: github.ref_type == 'tag'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate release tag and signing configuration
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) { throw 'Missing TAURI_SIGNING_PRIVATE_KEY repository secret.' }
+          $tagVersion = $env:RELEASE_TAG -replace '^v',''
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $cargo = Get-Content src-tauri/Cargo.toml -Raw
+          if ($package.version -ne $tagVersion) { throw "Tag version $tagVersion does not match package.json version $($package.version)." }
+          if ($cargo -notmatch ('(?m)^version = "' + [regex]::Escape($tagVersion) + '"$')) { throw "Tag version $tagVersion does not match Cargo.toml." }
+          $config = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          if ($config.plugins.updater.pubkey -like 'REPLACE_*' -or [string]::IsNullOrWhiteSpace($config.plugins.updater.pubkey)) { throw 'Set a real updater public key in src-tauri/tauri.conf.json before publishing.' }
+      - name: Install frontend dependencies
+        run: npm install
+      - name: Build signed NSIS updater package
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.release.conf.json
+      - name: Generate Tauri updater manifest
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          $installer = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter '*-setup.exe' | Select-Object -First 1
+          if (-not $installer) { $installer = Get-ChildItem src-tauri/target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1 }
+          if (-not $installer) { throw 'NSIS updater installer was not produced.' }
+          $signaturePath = $installer.FullName + '.sig'
+          if (-not (Test-Path $signaturePath)) { throw 'Signed updater signature is missing.' }
+          $signature = Get-Content $signaturePath -Raw
+          if ([string]::IsNullOrWhiteSpace($signature)) { throw 'Signed updater signature is empty.' }
+          $tagVersion = $env:RELEASE_TAG -replace '^v',''
+          $download = "$($env:SERVER_URL)/$($env:REPOSITORY)/releases/download/$($env:RELEASE_TAG)/$($installer.Name)"
+          $manifest = @{ version = $tagVersion; notes = 'Plazma S PC update'; pub_date = (Get-Date).ToUniversalTime().ToString('o'); platforms = @{ 'windows-x86_64' = @{ url = $download; signature = $signature.Trim() } } }
+          $json = $manifest | ConvertTo-Json -Depth 8
+          [System.IO.File]::WriteAllText('latest.json', $json, [System.Text.UTF8Encoding]::new($false))
+          Copy-Item $installer.FullName .
+          Copy-Item $signaturePath .
+      - name: Publish GitHub release and update manifest
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            *.exe
+            *.exe.sig
+            latest.json

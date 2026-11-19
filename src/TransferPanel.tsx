@@ -1,6 +1,7 @@
 import {useEffect,useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
+import {Laptop,Monitor,RefreshCw,Send,ShieldCheck,Wifi} from "lucide-react";
 
 type Peer={instanceName:string;platform:string;addresses:string[];port:number;protocolVersion:number;fingerprint?:string|null;authenticated:boolean};
 type Receiver={listening:boolean;port:number;fingerprint:string};
@@ -8,41 +9,57 @@ type Offer={transferId:string;senderName:string;senderPlatform:string;fileCount:
 
 export default function TransferPanel(){
  const [peers,setPeers]=useState<Peer[]>([]);
+ const [selected,setSelected]=useState<Peer|null>(null);
  const [receiver,setReceiver]=useState<Receiver|null>(null);
- const [address,setAddress]=useState("");
- const [port,setPort]=useState("53317");
- const [fingerprint,setFingerprint]=useState("");
  const [paths,setPaths]=useState("");
  const [pending,setPending]=useState<Offer|null>(null);
  const [message,setMessage]=useState("");
  const [busy,setBusy]=useState(false);
  const [mode,setMode]=useState<"chooser"|"pc-pc"|"pc-android">("chooser");
  useEffect(()=>{let unlisten:(()=>void)|undefined;listen<Offer>("plazma-transfer-offer",event=>setPending(event.payload)).then(fn=>unlisten=fn);return()=>unlisten?.();},[]);
- const discover=async()=>{setBusy(true);setMessage("");try{const found=await invoke<Peer[]>("discover_peers");setPeers(found);setMessage(found.length?"Found "+found.length+" Plazma S device(s). Verify the fingerprint before connecting.":"No Plazma S devices found. Start the receiver on the other PC or enter its IP manually.");}catch(e){setMessage(String(e));}finally{setBusy(false);}};
- const start=async()=>{setBusy(true);try{const result=await invoke<Receiver>("start_receiver",{port:Number(port)||53317});setReceiver(result);setMessage("Secure receiver is listening. Share this certificate fingerprint with the sending PC.");}catch(e){setMessage(String(e));}finally{setBusy(false);}};
- const stop=async()=>{try{await invoke("stop_receiver");setReceiver(null);setMessage("Receiver stopped; local service advertisement withdrawn.");}catch(e){setMessage(String(e));}};
- const send=async()=>{const selected=paths.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(!address||!fingerprint||!selected.length){setMessage("Enter the destination IP, verified 64-character fingerprint and at least one full file path.");return;}setBusy(true);try{await invoke("send_files",{address,port:Number(port)||53317,expectedFingerprint:fingerprint.trim().replace(/:/g, "").toLowerCase(),files:selected,displayName:"Plazma S PC"});setMessage("Receiver confirmed the transfer and verified the files.");}catch(e){setMessage(String(e));}finally{setBusy(false);}};
- const respond=async(accept:boolean)=>{if(!pending)return;try{await invoke("respond_to_transfer_offer",{transferId:pending.transferId,accept});setPending(null);setMessage(accept?"Transfer approved. The sender can now stream the files.":"Transfer declined.");}catch(e){setMessage(String(e));}};
- if(mode==="chooser") return <section className="transfer-panel">
-  <div className="transfer-panel-head"><div><small>PLAZMA S · TRANSFER HUB</small><h2>Choose transfer mode</h2><p>Select where you want to send files from this PC.</p></div></div>
+ const prepareNearby=async()=>{
+  setBusy(true);setMessage("");
+  try{
+   try{const ready=await invoke<Receiver>("start_receiver",{port:53317});setReceiver(ready);}
+   catch(error){const detail=String(error);if(!detail.toLowerCase().includes("already")&&!detail.toLowerCase().includes("running"))throw error;}
+   const found=await invoke<Peer[]>("discover_peers");setPeers(found);setSelected(null);
+   setMessage(found.length?"Nearby Plazma S PCs found. Select a computer to continue.":"No Plazma S PCs found yet. Check that both computers are on the same Wi-Fi and Plazma S is open on both.");
+  }catch(error){setMessage("Could not search the local network: "+String(error));}
+  finally{setBusy(false);}
+ };
+ const send=async()=>{
+  if(!selected){setMessage("Choose a nearby PC first.");return;}
+  const files=paths.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!files.length){setMessage("Add at least one file path to send.");return;}
+  if(!selected.addresses[0]||!selected.fingerprint){setMessage("This PC did not provide the secure connection details required to send.");return;}
+  setBusy(true);
+  try{await invoke("send_files",{address:selected.addresses[0],port:selected.port,expectedFingerprint:selected.fingerprint,files,displayName:"Plazma S PC"});setMessage("The receiving PC approved the transfer and verified the files.");}
+  catch(error){setMessage(String(error));}
+  finally{setBusy(false);}
+ };
+ const respond=async(accept:boolean)=>{if(!pending)return;try{await invoke("respond_to_transfer_offer",{transferId:pending.transferId,accept});setPending(null);setMessage(accept?"Transfer approved.":"Transfer declined.");}catch(error){setMessage(String(error));}};
+ if(mode==="chooser")return <section className="transfer-panel">
+  <div className="transfer-panel-head"><div><small>PLAZMA S · TRANSFER HUB</small><h2>What are you connecting to?</h2><p>Choose a transfer route. Devices on your local network can find each other automatically.</p></div></div>
   <div className="transfer-columns">
-   <article className="transfer-card"><h3>PC ↔ PC</h3><p>Transfer files, folders, media and supported application packages between two Plazma S PCs.</p><button onClick={()=>setMode("pc-pc")}>Open PC to PC</button></article>
-   <article className="transfer-card"><h3>PC → Android</h3><p>Transfer files and media to an Android device. APKs, app packages and app installation are blocked on this route.</p><button onClick={()=>setMode("pc-android")}>Open PC to Android</button></article>
+   <article className="transfer-card"><h3>PC ↔ PC</h3><p>Send and receive files, folders, media and supported application packages between computers.</p><button onClick={()=>setMode("pc-pc")}>Find nearby PCs</button></article>
+   <article className="transfer-card"><h3>PC → Android</h3><p>Send files and media to Android. App packages and app installation are not allowed on this route.</p><button onClick={()=>setMode("pc-android")}>Continue to Android</button></article>
   </div>
  </section>;
- if(mode==="pc-android") return <section className="transfer-panel">
-  <div className="transfer-panel-head"><div><small>FILES & MEDIA ONLY</small><h2>PC → Android</h2><p>Android app packages are not permitted on this route.</p></div><button className="transfer-secondary" onClick={()=>setMode("chooser")}>＋ Transfer modes</button></div>
-  <article className="transfer-card"><h3>Android receiver is the next connection milestone</h3><p>The Android app needs a secure receiving service, device discovery/QR pairing and receiver approval before this route can be enabled. This screen deliberately does not offer a fake send action.</p><ul><li>Files and folders (where supported)</li><li>Photos, videos and audio</li><li>APK/APKS/AAB/XAPK blocked</li><li>No app installation or app sharing</li></ul></article>
- </section>;
+ if(mode==="pc-android")return <section className="transfer-panel"><div className="transfer-panel-head"><div><small>FILES & MEDIA ONLY</small><h2>PC → Android</h2><p>Android app packages are not permitted on this route.</p></div><button className="transfer-secondary" onClick={()=>setMode("chooser")}>Back to transfer modes</button></div><article className="transfer-card"><h3>Android receiving connection is being built</h3><p>This route will use nearby-device discovery and approval on the Android phone. It will not ask users to type network addresses.</p><ul><li>Files, photos, videos and music</li><li>APK/APKS/AAB/XAPK blocked</li><li>No app installation or app sharing</li></ul></article></section>;
  return <section className="transfer-panel">
-  <div className="transfer-panel-head"><div><small>LOCAL NETWORK · TLS 1.3</small><h2>PC to PC transfer</h2><p>Files, folders, media and supported app packages between PCs.</p></div><div><button className="transfer-secondary" onClick={()=>setMode("chooser")}>＋ Transfer modes</button> <button onClick={discover} disabled={busy}>Discover PCs</button></div></div>
+  <div className="transfer-panel-head"><div><small><Wifi size={13}/> SAME WI-FI · AUTOMATIC DISCOVERY</small><h2>Send to a nearby PC</h2><p>Keep both computers on the same Wi-Fi and open Plazma S. We'll look for each other.</p></div><button onClick={prepareNearby} disabled={busy}><RefreshCw size={15}/> {busy?"Searching…":"Find nearby PCs"}</button></div>
   <div className="transfer-columns">
-   <article className="transfer-card"><h3>Receive on this PC</h3><p>Incoming transfers wait for your approval. Received files are saved in Plazma S PC's application data folder under <b>Received</b>.</p>{receiver?<><div className="transfer-state">Listening on port {receiver.port}</div><label>Device certificate fingerprint</label><code>{receiver.fingerprint}</code><button className="transfer-secondary" onClick={stop}>Stop receiver</button></>:<button onClick={start} disabled={busy}>Start secure receiver</button>}
-    {pending&&<div className="incoming-offer"><b>Incoming transfer request</b><p>{pending.senderName} · {pending.senderPlatform}</p><p>{pending.fileCount} file(s) · {pending.totalBytes.toLocaleString()} bytes</p><ul>{pending.fileNames.slice(0,5).map(name=><li key={name}>{name}</li>)}</ul><div className="offer-actions"><button onClick={()=>respond(true)}>Approve</button><button className="transfer-secondary" onClick={()=>respond(false)}>Decline</button></div></div>}
+   <article className="transfer-card"><h3><Monitor size={18}/> Nearby computers</h3><p>{receiver?"This PC is ready to receive. Incoming transfers always need your approval.":"Find nearby computers to make this PC ready to receive too."}</p>
+    {!peers.length?<div className="nearby-empty"><Laptop size={30}/><b>No computers selected</b><span>Tap “Find nearby PCs” to search your Wi-Fi network.</span></div>:<div className="peer-list">{peers.map(peer=><button key={peer.instanceName} className={"peer-choice"+(selected?.instanceName===peer.instanceName?" selected":"")} onClick={()=>setSelected(peer)}><Monitor size={19}/><span><b>{peer.instanceName.replace(/\.(_plazmas\._tcp\.local\.)?$/,"")}</b><small>{peer.platform} · On your local network</small></span><span>{selected?.instanceName===peer.instanceName?"Selected":"Choose"}</span></button>)}</div>}
+    {pending&&<div className="incoming-offer"><b>Incoming transfer request</b><p>{pending.senderName} wants to send {pending.fileCount} file(s) · {pending.totalBytes.toLocaleString()} bytes.</p><ul>{pending.fileNames.slice(0,5).map(name=><li key={name}>{name}</li>)}</ul><div className="offer-actions"><button onClick={()=>respond(true)}>Accept files</button><button className="transfer-secondary" onClick={()=>respond(false)}>Decline</button></div></div>}
    </article>
-   <article className="transfer-card"><h3>Send to another PC</h3><label>Discovered devices</label><div className="peer-list">{peers.map(peer=><button key={peer.instanceName} className="peer-choice" onClick={()=>{setAddress(peer.addresses[0]??"");setPort(String(peer.port));setFingerprint(peer.fingerprint??"");}}><b>{peer.instanceName}</b><span>{peer.platform} · {peer.addresses.join(",")}:{peer.port}</span><small>{peer.fingerprint??"No fingerprint announced"} · Not authenticated</small></button>)}</div><label>Destination IP address</label><input value={address} onChange={e=>setAddress(e.target.value)} placeholder="192.168.1.25"/><label>Port</label><input value={port} onChange={e=>setPort(e.target.value)} inputMode="numeric"/><label>Expected certificate fingerprint (SHA-256)</label><input value={fingerprint} onChange={e=>setFingerprint(e.target.value)} placeholder="64 hexadecimal characters"/><label>Full file paths (one per line)</label><textarea value={paths} onChange={e=>setPaths(e.target.value)} placeholder={"C:\\Users\\You\\Documents\\file.pdf\nC:\\Users\\You\\Pictures\\photo.jpg"} rows={4}/><button onClick={send} disabled={busy}>Connect securely and send</button></article>
+   <article className="transfer-card"><h3><Send size={18}/> Send files</h3>{selected?<div className="selected-device"><Monitor size={18}/><span><b>{selected.instanceName.replace(/\.(_plazmas\._tcp\.local\.)?$/,"")}</b><small>Secure connection details handled automatically</small></span></div>:<p>First choose a computer from the nearby list.</p>}
+    <label>Files to send</label><textarea value={paths} onChange={event=>setPaths(event.target.value)} placeholder={"Add file paths here, one per line"} rows={5}/>
+    <button onClick={send} disabled={busy||!selected}><Send size={15}/> {busy?"Please wait…":"Connect and send"}</button>
+    <div className="security-note"><ShieldCheck size={16}/><span>Encrypted connection. The other PC must approve before files are saved.</span></div>
+   </article>
   </div>
   {message&&<div className="transfer-message">{message}</div>}
-  <small className="transfer-footnote">Peer discovery is untrusted metadata. The sender pins the receiver's TLS certificate before sending. The receiver must approve each transfer. PC-to-PC app packages are a permitted transfer category; application installation is handled only by the receiving PC user.</small>
+  <div className="transfer-footnote">Tip: both PCs must be awake, running Plazma S, and connected to the same Wi-Fi network. Some guest Wi-Fi networks block device discovery.</div>
  </section>;
 }
