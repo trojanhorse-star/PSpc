@@ -154,6 +154,8 @@ fn scan_media_library() -> Result<Vec<MediaItem>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(engine::EngineState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_status,
