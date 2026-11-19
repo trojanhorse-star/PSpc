@@ -295,6 +295,7 @@ pub async fn send_files(app: AppHandle, address: String, port: u16, expected_fin
     if files.is_empty() || files.len() > protocol::MAX_MANIFEST_FILES { return Err("invalid file selection".into()); }
     let config_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let local_identity = load_identity(&config_dir.join("identity"))?;
+    let sender_fingerprint = local_identity.fingerprint.clone();
     let mut entries = Vec::with_capacity(files.len());
     let mut total = 0u64;
     for source in &files {
@@ -308,14 +309,15 @@ pub async fn send_files(app: AppHandle, address: String, port: u16, expected_fin
             size_bytes: metadata.len(), mime_type: None, sha256: Some(file_sha256(&path)?), relative_path: None
         });
     }
+    if total > MAX_TRANSFER_BYTES { return Err("transfer exceeds the 100 GiB safety limit".into()); }
     let offer = TransferOffer {
         protocol_version: protocol::PROTOCOL_VERSION,
         transfer_id: Uuid::new_v4().to_string(),
         sender: DeviceIdentity {
-            device_id: Uuid::new_v4().to_string(),
+            device_id: sender_fingerprint[..16].to_string(),
             display_name: display_name.unwrap_or_else(|| "Plazma S PC".into()),
             platform: if cfg!(target_os = "windows") { DevicePlatform::Windows } else { DevicePlatform::Other },
-            certificate_fingerprint: local_identity.fingerprint,
+            certificate_fingerprint: sender_fingerprint,
             protocol_min: protocol::PROTOCOL_VERSION,
             protocol_max: protocol::PROTOCOL_VERSION,
         },
