@@ -115,6 +115,30 @@ fn scan_media_folders(folders: Vec<String>) -> Result<Vec<MediaItem>, String> {
     scan_roots(roots)
 }
 #[tauri::command]
+fn get_media_thumbnail(path: String) -> Result<String, String> {
+    use std::{io::Cursor, process::Command};
+    let path = std::fs::canonicalize(&path).map_err(|e| format!("Cannot access media: {e}"))?;
+    if !path.is_file() { return Err("Media file no longer exists.".into()); }
+    let ext = path.extension().and_then(|v|v.to_str()).unwrap_or("").to_ascii_lowercase();
+    let bytes = if media_category(&ext) == Some("Photos") {
+        let mut reader = image::ImageReader::open(&path).map_err(|e| format!("Cannot read image: {e}"))?;
+        reader.limits(image::Limits::default());
+        let image = reader.decode().map_err(|e| format!("Image preview unavailable: {e}"))?;
+        let thumb = image.thumbnail(480, 320);
+        let mut cursor = Cursor::new(Vec::new());
+        thumb.write_to(&mut cursor, image::ImageFormat::Jpeg).map_err(|e| format!("Cannot create image preview: {e}"))?;
+        cursor.into_inner()
+    } else if media_category(&ext) == Some("Videos") {
+        let output = Command::new("ffmpeg").args(["-loglevel","error","-ss","00:00:01","-i"]).arg(&path)
+            .args(["-frames:v","1","-vf","scale=480:-1","-f","image2pipe","-vcodec","mjpeg","pipe:1"]).output()
+            .map_err(|_| "Install FFmpeg and add it to PATH to show video thumbnails.".to_string())?;
+        if !output.status.success() || output.stdout.is_empty() { return Err("Video thumbnail could not be generated.".into()); }
+        output.stdout
+    } else { return Err("No thumbnail is available for this media type.".into()); };
+    use base64::Engine as _;
+    Ok(format!("data:image/jpeg;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+#[tauri::command]
 fn open_media_file(path: String) -> Result<(), String> {
     use std::{fs, process::Command};
     let path = fs::canonicalize(&path).map_err(|e| format!("Cannot open file: {e}"))?;
@@ -157,7 +181,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(engine::EngineState::default())
-        .invoke_handler(tauri::generate_handler![get_app_status,discover_peers,scan_media_library,scan_media_folders,open_media_file,convert_video_to_mp3,
+        .invoke_handler(tauri::generate_handler![get_app_status,discover_peers,scan_media_library,scan_media_folders,get_media_thumbnail,open_media_file,convert_video_to_mp3,
             engine::start_receiver,engine::stop_receiver,engine::respond_to_transfer_offer,engine::send_files])
         .run(tauri::generate_context!()).expect("error while running Plazma S PC");
 }
