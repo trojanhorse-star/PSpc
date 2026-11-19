@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
         uris.forEach { uri ->
             runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             val meta = readMetadata(uri)
-            if (pickedFiles.none { it.uri == uri }) pickedFiles.add(meta)
+            if (isAllowedTransferFile(meta) && pickedFiles.none { it.uri == uri }) pickedFiles.add(meta)
         }
     }
 
@@ -111,6 +111,7 @@ class MainActivity : ComponentActivity() {
         incoming.forEach { uri ->
             runCatching {
                 val meta = readMetadata(uri)
+                if (!isAllowedTransferFile(meta)) return@runCatching
                 val safeName = meta.name.replace(Regex("[^A-Za-z0-9._ -]"), "_").take(120).ifBlank { "received_file" }
                 var target = File(folder, safeName)
                 if (target.exists()) target = File(folder, "${System.currentTimeMillis()}_$safeName")
@@ -347,4 +348,13 @@ private fun formatSize(bytes: Long): String = when {
     bytes < 1024L * 1024L -> String.format(Locale.getDefault(), "%.1f KB", bytes / 1024.0)
     bytes < 1024L * 1024L * 1024L -> String.format(Locale.getDefault(), "%.1f MB", bytes / (1024.0 * 1024.0))
     else -> String.format(Locale.getDefault(), "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0))
+}
+
+
+/** Android packages are intentionally excluded from Plazma S Android transfer. */
+private fun isAllowedTransferFile(file: PickedFile): Boolean {
+    val extension = file.name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+    val blockedExtensions = setOf("apk", "apks", "aab", "xapk")
+    val blockedMimeTypes = setOf("application/vnd.android.package-archive", "application/x-apk")
+    return extension !in blockedExtensions && file.mime?.lowercase(Locale.ROOT) !in blockedMimeTypes
 }
