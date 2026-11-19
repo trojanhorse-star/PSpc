@@ -22,6 +22,7 @@ pub enum DevicePlatform {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct DeviceIdentity {
     pub device_id: String,
     pub display_name: String,
@@ -34,6 +35,7 @@ pub struct DeviceIdentity {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct PeerCapabilities {
     pub max_chunk_bytes: u32,
     pub supports_resume: bool,
@@ -42,6 +44,7 @@ pub struct PeerCapabilities {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct FileManifestEntry {
     pub file_id: String,
     /// Display name only; never accept this as a filesystem path.
@@ -56,6 +59,7 @@ pub struct FileManifestEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct TransferOffer {
     pub protocol_version: u16,
     pub transfer_id: String,
@@ -74,6 +78,7 @@ pub enum TransferDecisionKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct TransferDecision {
     pub transfer_id: String,
     pub decision: TransferDecisionKind,
@@ -84,6 +89,7 @@ pub struct TransferDecision {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct ChunkRequest {
     pub transfer_id: String,
     pub file_id: String,
@@ -95,6 +101,7 @@ pub struct ChunkRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct ChunkAcknowledgement {
     pub transfer_id: String,
     pub file_id: String,
