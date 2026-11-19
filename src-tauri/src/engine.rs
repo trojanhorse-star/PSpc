@@ -231,9 +231,21 @@ async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &
         total_bytes: offer.total_bytes,
         file_names: offer.files.iter().map(|f| safe_name(&f.file_name)).collect(),
     };
-    app.emit("plazma-transfer-offer", event).map_err(|e| e.to_string())?;
-    let accepted = tokio::time::timeout(Duration::from_secs(300), rx).await
-        .map_err(|_| "receiver approval timed out")?.map_err(|_| "receiver approval was cancelled")?;
+    if let Err(error) = app.emit("plazma-transfer-offer", event) {
+        pending.lock().await.remove(&offer.transfer_id);
+        return Err(error.to_string());
+    }
+    let accepted = match tokio::time::timeout(Duration::from_secs(300), rx).await {
+        Ok(Ok(accepted)) => accepted,
+        Ok(Err(_)) => {
+            pending.lock().await.remove(&offer.transfer_id);
+            return Err("receiver approval was cancelled".into());
+        }
+        Err(_) => {
+            pending.lock().await.remove(&offer.transfer_id);
+            return Err("receiver approval timed out".into());
+        }
+    };
     if !accepted {
         write_json(stream, &ControlMessage::Decision(TransferDecision {
             transfer_id: offer.transfer_id, decision: TransferDecisionKind::Reject, session_token: None, reason_code: Some("receiver_rejected".into())
@@ -259,7 +271,7 @@ async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &
                 return Err("invalid chunk request".into());
             }
             let mut bytes = vec![0u8; chunk.length_bytes as usize];
-            stream.read_exact(&mut bytes).await.map_err(|e| e.to_string())?;
+            tokio::time::timeout(Duration::from_secs(60), stream.read_exact(&mut bytes)).await.map_err(|_| "chunk payload timed out")?.map_err(|e| e.to_string())?;
             let digest = hex::encode(Sha256::digest(&bytes));
             if digest != chunk.chunk_sha256 { return Err("chunk checksum mismatch".into()); }
             output.write_all(&bytes).await.map_err(|e| e.to_string())?;
