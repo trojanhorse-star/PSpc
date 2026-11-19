@@ -288,10 +288,31 @@ pub async fn respond_to_transfer_offer(state: State<'_, EngineState>, transfer_i
     sender.send(accept).map_err(|_| "transfer connection closed".to_string())
 }
 
+
+fn is_android_app_package(entry: &FileManifestEntry) -> bool {
+    let extension = Path::new(&entry.file_name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let package_extension = matches!(extension.as_str(), "apk" | "apks" | "aab" | "xapk");
+    let package_mime = entry.mime_type.as_deref().unwrap_or("").to_ascii_lowercase();
+    package_extension || matches!(
+        package_mime.as_str(),
+        "application/vnd.android.package-archive"
+            | "application/x-apk"
+            | "application/vnd.android.aab"
+            | "application/vnd.android.bundle"
+    )
+}
+
 async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &AppHandle, pending: &Arc<Mutex<HashMap<String, oneshot::Sender<bool>>>>, receive_dir: &Path) -> Result<(), String> {
     let message: ControlMessage = tokio::time::timeout(Duration::from_secs(15), read_json(stream)).await.map_err(|_| "transfer offer timed out")??;
     let offer = match message { ControlMessage::Offer(offer) => offer, _ => return Err("expected transfer offer".into()) };
     protocol::validate_offer(&offer).map_err(|e| e.to_string())?;
+    if offer.sender.platform == DevicePlatform::Android && offer.files.iter().any(is_android_app_package) {
+        return Err("Android-to-PC transfers cannot contain APK or app packages".into());
+    }
     if offer.total_bytes > MAX_TRANSFER_BYTES { return Err("transfer exceeds the 100 GiB safety limit".into()); }
     let available = fs2::available_space(receive_dir).map_err(|e| format!("check receiver free space: {e}"))?;
     if offer.total_bytes > available { return Err(format!("not enough free disk space: transfer needs {} bytes, only {} bytes are available", offer.total_bytes, available)); }
