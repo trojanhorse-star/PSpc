@@ -61,7 +61,10 @@ fn discover_peers() -> Result<Vec<DiscoveredPeer>, String> {
             Ok(ServiceEvent::ServiceResolved(service)) => {
                 let app = service.get_property_val_str("app").unwrap_or_default();
                 let version = service.get_property_val_str("protocolVersion").and_then(|v| v.parse::<u16>().ok());
-                if app != "plazma-s" || version != Some(protocol::PROTOCOL_VERSION) { continue; }
+                let fingerprint = service.get_property_val_str("fingerprint").unwrap_or_default();
+                let tls = service.get_property_val_str("tls");
+                if app != "plazma-s" || version != Some(protocol::PROTOCOL_VERSION) || tls != Some("1.3") ||
+                    fingerprint.len() != 64 || !fingerprint.bytes().all(|b| b.is_ascii_hexdigit()) { continue; }
                 let addresses: Vec<String> = service.get_addresses_v4().into_iter().map(|ip| ip.to_string()).collect();
                 if addresses.is_empty() || !seen.insert(service.get_fullname().to_owned()) { continue; }
                 peers.push(DiscoveredPeer {
@@ -70,7 +73,7 @@ fn discover_peers() -> Result<Vec<DiscoveredPeer>, String> {
                     addresses,
                     port: service.get_port(),
                     protocol_version: version.unwrap_or_default(),
-                    fingerprint: service.get_property_val_str("fingerprint").map(str::to_owned),
+                    fingerprint: Some(fingerprint.to_owned()),
                     authenticated: false,
                 });
             }
