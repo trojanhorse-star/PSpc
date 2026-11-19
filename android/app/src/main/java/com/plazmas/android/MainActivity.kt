@@ -7,6 +7,10 @@ import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,6 +52,7 @@ data class ReceivedFile(val name: String, val size: Long, val path: String)
 class MainActivity : ComponentActivity() {
     private val pickedFiles = mutableStateListOf<PickedFile>()
     private val receivedFiles = mutableStateListOf<ReceivedFile>()
+    private val mediaFiles = mutableStateMapOf<String, List<PickedFile>>()
 
     private val filePicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         uris.forEach { uri ->
@@ -73,8 +78,18 @@ class MainActivity : ComponentActivity() {
             PlazmaApp(
                 pickedFiles = pickedFiles,
                 receivedFiles = receivedFiles,
+                mediaFiles = mediaFiles,
                 onPickFiles = { filePicker.launch(arrayOf("*/*")) },
                 onPickMedia = { mime -> mediaPicker.launch(arrayOf(mime)) },
+                onLoadMedia = { category ->
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val items = runCatching { MediaStoreLibrary.query(this@MainActivity, category) }.getOrDefault(emptyList())
+                        withContext(Dispatchers.Main) { mediaFiles[category] = items }
+                    }
+                },
+                onAddMedia = { item ->
+                    if (isAllowedTransferFile(item) && pickedFiles.none { it.uri == item.uri }) pickedFiles.add(item)
+                },
                 onRemovePicked = { pickedFiles.remove(it) }
             )
         }
@@ -135,8 +150,11 @@ class MainActivity : ComponentActivity() {
 private fun PlazmaApp(
     pickedFiles: List<PickedFile>,
     receivedFiles: List<ReceivedFile>,
+    mediaFiles: Map<String, List<PickedFile>>,
     onPickFiles: () -> Unit,
     onPickMedia: (String) -> Unit,
+    onLoadMedia: (String) -> Unit,
+    onAddMedia: (PickedFile) -> Unit,
     onRemovePicked: (PickedFile) -> Unit
 ) {
     var page by remember { mutableStateOf("Home") }
@@ -193,9 +211,12 @@ private fun PlazmaApp(
                     "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, { page = "Media" }, { page = "Files" }, { page = "TransferModes" })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaHubScreen(onImages = { page = "Images" }, onVideos = { page = "Videos" }, onAudio = { page = "Audio" })
-                    "Images" -> MediaScreen(pickedFiles, "Images", "image/*", onPickMedia, onRemovePicked)
-                    "Videos" -> MediaScreen(pickedFiles, "Videos", "video/*", onPickMedia, onRemovePicked)
-                    "Audio" -> MediaScreen(pickedFiles, "Audio", "audio/*", onPickMedia, onRemovePicked)
+                    "Images" -> MediaStoreScreen("Images", mediaFiles["Images"].orEmpty(), pickedFiles,
+                        { onLoadMedia("Images") }, onAddMedia, onPickMedia)
+                    "Videos" -> MediaStoreScreen("Videos", mediaFiles["Videos"].orEmpty(), pickedFiles,
+                        { onLoadMedia("Videos") }, onAddMedia, onPickMedia)
+                    "Audio" -> MediaStoreScreen("Audio", mediaFiles["Audio"].orEmpty(), pickedFiles,
+                        { onLoadMedia("Audio") }, onAddMedia, onPickMedia)
                     "TransferModes" -> TransferModeChooser(
                         onAndroidToAndroid = { page = "AndroidToAndroid" },
                         onAndroidToPc = { page = "AndroidToPc" }
