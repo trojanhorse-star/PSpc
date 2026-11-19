@@ -1,13 +1,12 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
 import {open as chooseFolder} from "@tauri-apps/plugin-dialog";
-import {Image,Music2,Video,RefreshCw,Search,FolderOpen,HardDrive,Check,FileAudio,FileVideo,FileImage,Grid2X2,List,CheckSquare,Square,Play,FolderPlus,AudioLines} from "lucide-react";
+import {RefreshCw,Search,FolderOpen,HardDrive,Check,FileAudio,FileVideo,FileImage,Grid2X2,List,CheckSquare,Square,Play,FolderPlus,AudioLines} from "lucide-react";
 
 type MediaItem={name:string;path:string;category:string;extension:string;sizeBytes:number;modifiedUnix:number|null};
 type Category="Photos"|"Videos"|"Music";
 const categoryLabels:Record<Category,string>={Photos:"Images",Videos:"Videos",Music:"Audio"};
 const formatSize=(n:number)=>n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":n<1073741824?(n/1048576).toFixed(1)+" MB":(n/1073741824).toFixed(2)+" GB";
-const categoryIcon=(category:string)=>category==="Photos"?Image:category==="Videos"?Video:Music2;
 const fileIcon=(category:string)=>category==="Photos"?FileImage:category==="Videos"?FileVideo:FileAudio;
 
 function MediaTile({item,view,chosen,onToggle}:{item:MediaItem;view:"grid"|"list";chosen:boolean;onToggle:()=>void}){
@@ -37,7 +36,6 @@ export default function MediaLibrary({category}:{category:Category}){
  useEffect(()=>{void refresh();},[refresh]);
  const addFolders=async()=>{try{const result=await chooseFolder({directory:true,multiple:true,title:"Add media folders from this PC"});if(!result)return;const added=Array.isArray(result)?result:[result];setFolders(current=>[...new Set([...current,...added])]);}catch(e){setError("Folder picker failed: "+String(e));}};
  const visible=useMemo(()=>items.filter(x=>x.category===category&&x.name.toLowerCase().includes(query.toLowerCase())),[items,category,query]);
- const count=(c:string)=>items.filter(x=>x.category===c).length;
  const allVisibleSelected=visible.length>0&&visible.every(x=>selected.includes(x.path));
  const toggle=(path:string)=>setSelected(current=>current.includes(path)?current.filter(x=>x!==path):[...current,path]);
  const toggleAll=()=>setSelected(current=>allVisibleSelected?current.filter(x=>!visible.some(v=>v.path===x)):[...new Set([...current,...visible.map(v=>v.path)])]);
