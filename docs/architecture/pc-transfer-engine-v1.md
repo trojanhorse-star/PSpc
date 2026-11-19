@@ -11,7 +11,7 @@
 - The listener caps concurrent unauthenticated connections at eight, rejects excess sockets, limits each source IP to twelve connection attempts per rolling minute, and times out TLS handshakes after ten seconds.
 - Before asking the user to approve an offer, the receiver checks available disk space against the advertised transfer size and rejects transfers that cannot fit.
 - Files are streamed in bounded 1 MiB chunks. Each chunk is SHA-256 checked and acknowledged; the complete file is checked against its manifest digest.
-- Received data is written to an application-private partial file and promoted to its final sanitized filename only after checksum validation.
+- Received data is written to an application-private partial file and promoted only after checksum validation. Promotion uses an atomic hard-link when supported and an exclusive-create copy fallback, so concurrent receives cannot overwrite an existing destination.
 - Received files are inert; no file is executed or automatically opened.
 
 ## Wire format
@@ -45,7 +45,7 @@ DTO members use camelCase. Enum values use snake_case. Rust struct-variant field
 
 1. Add mutual TLS or an equivalent authenticated sender identity proof, plus explicit paired-device trust/revocation.
 2. Add session-bound authentication tokens, comprehensive idle timeouts for every protocol phase, durable rate-limit state and abuse monitoring.
-3. Strengthen collision-safe destination reservation under concurrent receives and add tests for concurrent filename races.
+3. Expand concurrency and filesystem-specific tests for collision-safe destination reservation, hard-link fallback, and interrupted promotion cleanup.
 4. Add resume metadata and durable partial-file checkpoints.
 5. Add file-picker UX, folder traversal with path-component validation, and a persistent transfer queue.
 6. Run cross-platform fixture tests and physical two-PC LAN tests on different Windows firewall/network profiles.
