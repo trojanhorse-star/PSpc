@@ -391,7 +391,7 @@ private fun InfoScreen(title: String, body: String) {
     }
 }
 
-private fun formatSize(bytes: Long): String = when {
+internal fun formatSize(bytes: Long): String = when {
     bytes <= 0L -> "Size unavailable"
     bytes < 1024L -> "$bytes B"
     bytes < 1024L * 1024L -> String.format(Locale.getDefault(), "%.1f KB", bytes / 1024.0)
@@ -401,7 +401,7 @@ private fun formatSize(bytes: Long): String = when {
 
 
 /** Android packages are intentionally excluded from Plazma S Android transfer. */
-private fun isAllowedTransferFile(file: PickedFile): Boolean {
+internal fun isAllowedTransferFile(file: PickedFile): Boolean {
     val extension = file.name.substringAfterLast('.', "").lowercase(Locale.ROOT)
     val blockedExtensions = setOf("apk", "apks", "aab", "xapk")
     val blockedMimeTypes = setOf("application/vnd.android.package-archive", "application/x-apk")
