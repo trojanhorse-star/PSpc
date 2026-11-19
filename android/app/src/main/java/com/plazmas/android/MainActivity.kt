@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
                 val safeName = meta.name.replace(Regex("[^A-Za-z0-9._ -]"), "_").take(120).ifBlank { "received_file" }
                 var target = File(folder, safeName)
                 if (target.exists()) target = File(folder, "${System.currentTimeMillis()}_$safeName")
-                contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use(input::copyTo) }
+                contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { output -> input.copyTo(output) } }
             }
         }
     }
