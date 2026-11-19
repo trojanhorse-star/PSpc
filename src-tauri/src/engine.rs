@@ -17,6 +17,8 @@ use uuid::Uuid;
 const SERVICE_TYPE: &str = "_plazmas._tcp.local.";
 const MAX_CONTROL_FRAME: usize = 1024 * 1024;
 const CHUNK_BYTES: usize = 1024 * 1024;
+const MAX_TRANSFER_BYTES: u64 = 100 * 1024 * 1024 * 1024;
+const MAX_PENDING_TRANSFERS: usize = 8;
 
 #[derive(Clone, Default)]
 pub struct EngineState {
@@ -129,7 +131,7 @@ async fn read_json<R: AsyncRead + Unpin, T: DeserializeOwned>(stream: &mut R) ->
     let len = stream.read_u32().await.map_err(|e| e.to_string())? as usize;
     if len == 0 || len > MAX_CONTROL_FRAME { return Err("invalid control frame length".into()); }
     let mut bytes = vec![0; len];
-    stream.read_exact(&mut bytes).await.map_err(|e| e.to_string())?;
+    tokio::time::timeout(Duration::from_secs(60), stream.read_exact(&mut bytes)).await.map_err(|_| "chunk data timed out")?.map_err(|e| e.to_string())?;
     serde_json::from_slice(&bytes).map_err(|e| format!("invalid control message: {e}"))
 }
 fn file_sha256(path: &Path) -> Result<String, String> {
@@ -209,11 +211,18 @@ pub async fn respond_to_transfer_offer(state: State<'_, EngineState>, transfer_i
 }
 
 async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &AppHandle, pending: &Arc<Mutex<HashMap<String, oneshot::Sender<bool>>>>, receive_dir: &Path) -> Result<(), String> {
-    let message: ControlMessage = read_json(stream).await?;
+    let message: ControlMessage = tokio::time::timeout(Duration::from_secs(15), read_json(stream)).await.map_err(|_| "transfer offer timed out")??;
     let offer = match message { ControlMessage::Offer(offer) => offer, _ => return Err("expected transfer offer".into()) };
     protocol::validate_offer(&offer).map_err(|e| e.to_string())?;
+    if offer.total_bytes > MAX_TRANSFER_BYTES { return Err("transfer exceeds the 100 GiB safety limit".into()); }
     let (tx, rx) = oneshot::channel();
-    pending.lock().await.insert(offer.transfer_id.clone(), tx);
+    {
+        let mut requests = pending.lock().await;
+        if requests.len() >= MAX_PENDING_TRANSFERS || requests.contains_key(&offer.transfer_id) {
+            return Err("receiver is busy or transfer id is already pending".into());
+        }
+        requests.insert(offer.transfer_id.clone(), tx);
+    }
     let event = PendingOffer {
         transfer_id: offer.transfer_id.clone(),
         sender_name: offer.sender.display_name.clone(),
@@ -242,7 +251,7 @@ async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &
         let mut offset = 0u64;
         let mut full_hash = Sha256::new();
         while offset < entry.size_bytes {
-            let request: ControlMessage = read_json(stream).await?;
+            let request: ControlMessage = tokio::time::timeout(Duration::from_secs(60), read_json(stream)).await.map_err(|_| "chunk request timed out")??;
             let chunk = match request { ControlMessage::ChunkRequestMessage(c) => c, _ => return Err("expected chunk request".into()) };
             if chunk.transfer_id != offer.transfer_id || chunk.file_id != entry.file_id || chunk.offset_bytes != offset ||
                 chunk.length_bytes == 0 || chunk.length_bytes as u64 > protocol::MAX_CHUNK_BYTES as u64 ||
