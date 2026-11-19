@@ -27,3 +27,7 @@ Plazma S exposes route-specific transfer modes from the plus (+) transfer select
 - Android app: the plus (+) action opens **Android ↔ Android** and **Android → PC**.
 - The selected route remains visible during the session and is included in transfer confirmation UI.
 - Unsupported routes must be clearly labelled as in development rather than presenting non-functional send controls.
+
+## Current security caveat
+
+The current PC receiver's sender platform is supplied in the transfer offer and is not yet authenticated with a client certificate. Its Android-package rejection check is defense-in-depth only: a malicious client could misrepresent its platform. Do not claim a hard, adversary-resistant Android-to-PC app-transfer prohibition until mutual TLS or an equivalent cryptographically authenticated paired-device identity is implemented and tested. The Android sender-side package block is already enforced locally, but receiver-side authenticated route enforcement remains a release gate.
