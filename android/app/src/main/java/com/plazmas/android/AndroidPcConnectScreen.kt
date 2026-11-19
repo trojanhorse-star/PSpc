@@ -12,6 +12,11 @@ import androidx.compose.ui.unit.dp
 import com.plazmas.android.transfer.AndroidPcTransferClient
 import com.plazmas.android.transfer.DiscoveredPc
 import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.Color
+
+private val ConnectCyan = Color(0xFF19D8FF)
+private val ConnectPanel = Color(0xFF111A30)
+private val ConnectMuted = Color(0xFF9AA8C4)
 
 @Composable
 fun AndroidPcConnectScreen(files: List<PickedFile>) {
@@ -30,9 +35,9 @@ fun AndroidPcConnectScreen(files: List<PickedFile>) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        Text("ANDROID → PC", color = Cyan, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+        Text("ANDROID → PC", color = ConnectCyan, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        Text("Send selected files, photos, videos and audio to a Plazma S PC. APKs and app packages are not transferable.", color = Muted, style = MaterialTheme.typography.bodySmall)
+        Text("Send selected files, photos, videos and audio to a Plazma S PC. APKs and app packages are not transferable.", color = ConnectMuted, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Button(
@@ -52,33 +57,33 @@ fun AndroidPcConnectScreen(files: List<PickedFile>) {
             OutlinedButton(onClick = { client.stopDiscovery(); scanning = false }, enabled = scanning) { Text("Stop") }
         }
         Spacer(Modifier.height(12.dp))
-        Text("SELECTED FILES: ${files.size}", color = Cyan, style = MaterialTheme.typography.labelMedium)
+        Text("SELECTED FILES: ${files.size}", color = ConnectCyan, style = MaterialTheme.typography.labelMedium)
         if (files.isEmpty()) {
-            Text("Choose files or media in the Files or Media tab first.", color = Muted, style = MaterialTheme.typography.bodySmall)
+            Text("Choose files or media in the Files or Media tab first.", color = ConnectMuted, style = MaterialTheme.typography.bodySmall)
         } else {
-            Text(files.take(3).joinToString { it.name } + if (files.size > 3) " + ${files.size - 3} more" else "", color = Muted, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+            Text(files.take(3).joinToString { it.name } + if (files.size > 3) " + ${files.size - 3} more" else "", color = ConnectMuted, style = MaterialTheme.typography.bodySmall, maxLines = 2)
         }
         Spacer(Modifier.height(12.dp))
-        Text(status, color = Muted, style = MaterialTheme.typography.bodySmall)
+        Text(status, color = ConnectMuted, style = MaterialTheme.typography.bodySmall)
         progress?.let { (done, total) ->
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(progress = { if (total == 0L) 0f else done.toFloat() / total.toFloat() }, modifier = Modifier.fillMaxWidth())
-            Text("${done} / ${total} bytes", color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text("${done} / ${total} bytes", color = ConnectMuted, style = MaterialTheme.typography.labelSmall)
         }
         Spacer(Modifier.height(12.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(peers, key = { "${it.host}:${it.port}" }) { peer ->
                 var confirmed by remember(peer.fingerprint) { mutableStateOf(false) }
-                Card(colors = CardDefaults.cardColors(containerColor = Panel)) {
+                Card(colors = CardDefaults.cardColors(containerColor = ConnectPanel)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
                         Text(peer.serviceName, fontWeight = FontWeight.Bold)
-                        Text("${peer.platform} · ${peer.host}:${peer.port}", color = Muted, style = MaterialTheme.typography.bodySmall)
+                        Text("${peer.platform} · ${peer.host}:${peer.port}", color = ConnectMuted, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(6.dp))
-                        Text("PC TLS fingerprint", color = Cyan, style = MaterialTheme.typography.labelSmall)
+                        Text("PC TLS fingerprint", color = ConnectCyan, style = MaterialTheme.typography.labelSmall)
                         Text(peer.fingerprint.chunked(4).joinToString(" "), style = MaterialTheme.typography.bodySmall)
                         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Checkbox(checked = confirmed, onCheckedChange = { confirmed = it }, enabled = !sending)
-                            Text("I compared this fingerprint with the PC screen", color = Muted, style = MaterialTheme.typography.bodySmall)
+                            Text("I compared this fingerprint with the PC screen", color = ConnectMuted, style = MaterialTheme.typography.bodySmall)
                         }
                         Button(
                             onClick = {
