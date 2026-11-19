@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
                 pickedFiles = pickedFiles,
                 receivedFiles = receivedFiles,
                 onPickFiles = { filePicker.launch(arrayOf("*/*")) },
-                onPickMedia = { mediaPicker.launch(arrayOf("image/*", "video/*", "audio/*")) },
+                onPickMedia = { mime -> mediaPicker.launch(arrayOf(mime)) },
                 onRemovePicked = { pickedFiles.remove(it) }
             )
         }
@@ -136,7 +136,7 @@ private fun PlazmaApp(
     pickedFiles: List<PickedFile>,
     receivedFiles: List<ReceivedFile>,
     onPickFiles: () -> Unit,
-    onPickMedia: () -> Unit,
+    onPickMedia: (String) -> Unit,
     onRemovePicked: (PickedFile) -> Unit
 ) {
     var page by remember { mutableStateOf("Home") }
@@ -192,7 +192,10 @@ private fun PlazmaApp(
                 when (page) {
                     "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, onPickMedia, { page = "Files" }, { page = "TransferModes" })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
-                    "Media" -> MediaScreen(pickedFiles, onPickMedia, onRemovePicked)
+                    "Media" -> MediaHubScreen(onImages = { page = "Images" }, onVideos = { page = "Videos" }, onAudio = { page = "Audio" })
+                    "Images" -> MediaScreen(pickedFiles, "Images", "image/*", onPickMedia, onRemovePicked)
+                    "Videos" -> MediaScreen(pickedFiles, "Videos", "video/*", onPickMedia, onRemovePicked)
+                    "Audio" -> MediaScreen(pickedFiles, "Audio", "audio/*", onPickMedia, onRemovePicked)
                     "TransferModes" -> TransferModeChooser(
                         onAndroidToAndroid = { page = "AndroidToAndroid" },
                         onAndroidToPc = { page = "AndroidToPc" }
@@ -280,17 +283,32 @@ private fun FilesScreen(files: List<PickedFile>, received: List<ReceivedFile>, o
 }
 
 @Composable
-private fun MediaScreen(files: List<PickedFile>, onPick: () -> Unit, onRemove: (PickedFile) -> Unit) {
+private fun MediaHubScreen(onImages: () -> Unit, onVideos: () -> Unit, onAudio: () -> Unit) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(13.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
+        item {
+            SectionTitle("YOUR MEDIA")
+            Spacer(Modifier.height(8.dp))
+            Text("Choose a dedicated library. Images, videos and audio stay in their own sections.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
+        }
+        item { ActionCard("Images", "Photos, pictures and image files", onImages, Modifier.fillMaxWidth()) }
+        item { ActionCard("Videos", "Video clips and recordings", onVideos, Modifier.fillMaxWidth()) }
+        item { ActionCard("Audio", "Music, songs and audio files", onAudio, Modifier.fillMaxWidth()) }
+    }
+}
+
+@Composable
+private fun MediaScreen(files: List<PickedFile>, title: String, mimePrefix: String, onPick: (String) -> Unit, onRemove: (PickedFile) -> Unit) {
+    val media = files.filter { it.mime?.startsWith(mimePrefix) == true }
     Column(Modifier.fillMaxSize()) {
-        SectionTitle("YOUR MEDIA")
-        Text("Select photos, videos and audio from your phone. Android controls which files you grant access to.", color = Muted, fontSize = 12.sp)
+        SectionTitle(title.uppercase(Locale.getDefault()))
+        Text("Your $title library. Select only $title from your phone using Android's secure system picker.", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(14.dp))
-        Button(onClick = onPick) { Icon(Icons.Outlined.Image, null); Spacer(Modifier.width(8.dp)); Text("Choose media") }
+        Button(onClick = { onPick(mimePrefix) }) { Icon(Icons.Outlined.Image, null); Spacer(Modifier.width(8.dp)); Text("Add $title") }
         Spacer(Modifier.height(18.dp))
-        val media = files.filter { it.mime?.startsWith("image/") == true || it.mime?.startsWith("video/") == true || it.mime?.startsWith("audio/") == true }
-        if (media.isEmpty()) EmptyState("No media selected yet", "Choose media to add local items to this view.")
-        else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(media, key = { it.uri.toString() }) { FileRow(it.name, it.size, it.mime ?: "Media", onRemove = { onRemove(it) }) }
+        Text("${title.uppercase(Locale.getDefault())} · ${media.size}", color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        if (media.isEmpty()) EmptyState("No $title selected yet", "Choose $title to add local items to this section.")
+        else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
+            items(media, key = { it.uri.toString() }) { file -> FileRow(file.name, file.size, file.mime ?: title, onRemove = { onRemove(file) }) }
         }
     }
 }
