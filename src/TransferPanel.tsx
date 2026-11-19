@@ -1,5 +1,6 @@
 import {useEffect,useState} from "react";
 import {invoke} from "@tauri-apps/api/core";
+import {open as chooseFiles} from "@tauri-apps/plugin-dialog";
 import {listen} from "@tauri-apps/api/event";
 import {Laptop,Monitor,RefreshCw,Send,ShieldCheck,Wifi} from "lucide-react";
 
@@ -38,6 +39,8 @@ export default function TransferPanel(){
   finally{setBusy(false);}
  };
  const respond=async(accept:boolean)=>{if(!pending)return;try{await invoke("respond_to_transfer_offer",{transferId:pending.transferId,accept});setPending(null);setMessage(accept?"Transfer approved.":"Transfer declined.");}catch(error){setMessage(String(error));}};
+ const pickFiles=async()=>{try{const chosen=await chooseFiles({multiple:true,directory:false,title:"Choose files to send"});if(!chosen)return;const additions=Array.isArray(chosen)?chosen:[chosen];setPaths(current=>[...new Set([...current.split(/\\r?\\n/).filter(Boolean),...additions])].join("\\n"));}catch(error){setMessage("Could not open the file picker: "+String(error));}};
+ const removePath=(path:string)=>setPaths(current=>current.split(/\\r?\\n/).filter(item=>item!==path).join("\\n"));
  if(mode==="chooser")return <section className="transfer-panel">
   <div className="transfer-panel-head"><div><small>PLAZMA S · TRANSFER HUB</small><h2>What are you connecting to?</h2><p>Choose a transfer route. Devices on your local network can find each other automatically.</p></div></div>
   <div className="transfer-columns">
@@ -54,8 +57,8 @@ export default function TransferPanel(){
     {pending&&<div className="incoming-offer"><b>Incoming transfer request</b><p>{pending.senderName} wants to send {pending.fileCount} file(s) · {pending.totalBytes.toLocaleString()} bytes.</p><ul>{pending.fileNames.slice(0,5).map(name=><li key={name}>{name}</li>)}</ul><div className="offer-actions"><button onClick={()=>respond(true)}>Accept files</button><button className="transfer-secondary" onClick={()=>respond(false)}>Decline</button></div></div>}
    </article>
    <article className="transfer-card"><h3><Send size={18}/> Send files</h3>{selected?<div className="selected-device"><Monitor size={18}/><span><b>{selected.instanceName.replace(/\.(_plazmas\._tcp\.local\.)?$/,"")}</b><small>Secure connection details handled automatically</small></span></div>:<p>First choose a computer from the nearby list.</p>}
-    <label>Files to send</label><textarea value={paths} onChange={event=>setPaths(event.target.value)} placeholder={"Add file paths here, one per line"} rows={5}/>
-    <button onClick={send} disabled={busy||!selected}><Send size={15}/> {busy?"Please wait…":"Connect and send"}</button>
+    <label>Files to send</label><button className="transfer-secondary" onClick={pickFiles} disabled={busy}>Choose files…</button>{paths.split(/\\r?\\n/).filter(Boolean).length>0&&<div className="transfer-files-list">{paths.split(/\\r?\\n/).filter(Boolean).map(path=><div key={path}><span title={path}>{path.split(/[\\\\/]/).pop()}</span><button className="transfer-secondary" onClick={()=>removePath(path)} disabled={busy}>Remove</button></div>)}</div>}
+    <button onClick={send} disabled={busy||!selected||!paths.trim()}><Send size={15}/> {busy?"Please wait…":"Connect and send"}</button>
     <div className="security-note"><ShieldCheck size={16}/><span>Encrypted connection. The other PC must approve before files are saved.</span></div>
    </article>
   </div>
