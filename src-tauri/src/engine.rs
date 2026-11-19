@@ -155,6 +155,56 @@ fn file_sha256(path: &Path) -> Result<String, String> {
     loop { let n = file.read(&mut buffer).map_err(|e| e.to_string())?; if n == 0 { break; } digest.update(&buffer[..n]); }
     Ok(hex::encode(digest.finalize()))
 }
+async fn promote_verified_part(part: &Path, receive_dir: &Path, original_name: &str) -> Result<PathBuf, String> {
+    let safe = safe_name(original_name);
+    let original = PathBuf::from(&safe);
+    let stem = original.file_stem().and_then(|v| v.to_str()).unwrap_or("received_file");
+    let extension = original.extension().and_then(|v| v.to_str());
+    for attempt in 0..100 {
+        let filename = if attempt == 0 {
+            safe.clone()
+        } else {
+            match extension {
+                Some(ext) => format!("{stem}-{}.{}", &Uuid::new_v4().simple().to_string()[..8], ext),
+                None => format!("{stem}-{}", &Uuid::new_v4().simple().to_string()[..8]),
+            }
+        };
+        let destination = receive_dir.join(filename);
+        match async_fs::hard_link(part, &destination).await {
+            Ok(()) => {
+                async_fs::remove_file(part).await.map_err(|e| format!("remove staged file: {e}"))?;
+                return Ok(destination);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(_) => {
+                // Some filesystems do not support hard links. Fall back to an
+                // exclusive create so a concurrent receive can never overwrite a file.
+                match async_fs::OpenOptions::new().write(true).create_new(true).open(&destination).await {
+                    Ok(mut output) => {
+                        let copied = async {
+                            let mut input = async_fs::File::open(part).await?;
+                            tokio::io::copy(&mut input, &mut output).await?;
+                            output.flush().await?;
+                            output.sync_all().await
+                        }.await;
+                        if let Err(error) = copied {
+                            drop(output);
+                            let _ = async_fs::remove_file(&destination).await;
+                            return Err(format!("promote verified file: {error}"));
+                        }
+                        drop(output);
+                        async_fs::remove_file(part).await.map_err(|e| format!("remove staged file: {e}"))?;
+                        return Ok(destination);
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => return Err(format!("reserve destination filename: {error}")),
+                }
+            }
+        }
+    }
+    Err("could not reserve a unique destination filename".into())
+}
+
 fn safe_name(name: &str) -> String {
     let normalized = name.replace('\\', "/");
     let base = normalized.rsplit('/').next().unwrap_or("received_file");
@@ -318,15 +368,7 @@ async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &
             let _ = async_fs::remove_file(&part).await;
             return Err("file checksum mismatch".into());
         }
-        let mut destination = receive_dir.join(safe_name(&entry.file_name));
-        if destination.exists() {
-            let stem = destination.file_stem().and_then(|s| s.to_str()).unwrap_or("received_file");
-            let ext = destination.extension().and_then(|s| s.to_str()).unwrap_or("");
-            let name = if ext.is_empty() { format!("{stem}-{}.received", &Uuid::new_v4().simple().to_string()[..8]) }
-                else { format!("{stem}-{}.{}", &Uuid::new_v4().simple().to_string()[..8], ext) };
-            destination = receive_dir.join(name);
-        }
-        async_fs::rename(&part, &destination).await.map_err(|e| e.to_string())?;
+        promote_verified_part(&part, receive_dir, &entry.file_name).await?;
     }
     write_json(stream, &ControlMessage::State { transfer_id: offer.transfer_id, state: protocol::TransferState::Complete }).await?;
     Ok(())
