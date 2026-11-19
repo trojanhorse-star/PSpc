@@ -26,6 +26,13 @@ jobs:
       - name: Run protocol and wire codec tests
         working-directory: android
         run: gradle testDebugUnitTest
-      - name: Assemble debug APK
+      - name: Assemble installable debug APK
         working-directory: android
         run: gradle assembleDebug
+      - name: Publish installable Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Plazma-S-Android-APK
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
