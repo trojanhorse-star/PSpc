@@ -158,10 +158,10 @@ object PlazmaProtocolJson {
             ?: error("missing_control_message_type")
         val payload = envelope["payload"] ?: error("missing_control_message_payload")
         return when (type) {
-            "offer" -> ControlMessage.Offer(json.decodeFromJsonElement(payload))
-            "decision" -> ControlMessage.Decision(json.decodeFromJsonElement(payload))
-            "chunk_request" -> ControlMessage.ChunkRequestMessage(json.decodeFromJsonElement(payload))
-            "chunk_acknowledgement" -> ControlMessage.ChunkAcknowledgementMessage(json.decodeFromJsonElement(payload))
+            "offer" -> ControlMessage.Offer(json.decodeFromJsonElement<TransferOffer>(payload))
+            "decision" -> ControlMessage.Decision(json.decodeFromJsonElement<TransferDecision>(payload))
+            "chunk_request" -> ControlMessage.ChunkRequestMessage(json.decodeFromJsonElement<ChunkRequest>(payload))
+            "chunk_acknowledgement" -> ControlMessage.ChunkAcknowledgementMessage(json.decodeFromJsonElement<ChunkAcknowledgement>(payload))
             "cancel" -> ControlMessage.Cancel(payload.jsonObjectString("transfer_id"))
             "state" -> ControlMessage.State(
                 payload.jsonObjectString("transfer_id"),
