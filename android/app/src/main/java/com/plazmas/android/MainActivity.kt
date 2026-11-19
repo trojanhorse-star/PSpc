@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -138,6 +139,7 @@ private fun PlazmaApp(
     onRemovePicked: (PickedFile) -> Unit
 ) {
     var page by remember { mutableStateOf("Home") }
+    var transferMode by remember { mutableStateOf("chooser") }
     MaterialTheme(colorScheme = darkColorScheme(
         primary = Cyan, secondary = Violet, background = Night, surface = Panel,
         onBackground = Color.White, onSurface = Color.White
@@ -150,7 +152,6 @@ private fun PlazmaApp(
                         Triple("Home", Icons.Outlined.Home, "Home"),
                         Triple("Files", Icons.Outlined.FolderOpen, "Files"),
                         Triple("Media", Icons.Outlined.Image, "Media"),
-                        Triple("Connect", Icons.Outlined.Wifi, "Connect"),
                         Triple("Activity", Icons.Outlined.History, "Activity"),
                         Triple("Settings", Icons.Outlined.Settings, "Settings")
                     )
@@ -183,14 +184,21 @@ private fun PlazmaApp(
                         Text("ANDROID", fontSize = 9.sp, color = Cyan, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.weight(1f))
-                    Icon(Icons.Outlined.Wifi, contentDescription = "Local transfer", tint = Muted)
+                    IconButton(onClick = { page = "TransferModes"; transferMode = "chooser" }) {
+                        Icon(Icons.Outlined.Add, contentDescription = "Choose transfer mode", tint = Cyan)
+                    }
                 }
                 Spacer(Modifier.height(22.dp))
                 when (page) {
                     "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, onPickMedia, { page = "Files" })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaScreen(pickedFiles, onPickMedia, onRemovePicked)
-                    "Connect" -> AndroidPcConnectScreen(pickedFiles)
+                    "TransferModes" -> TransferModeChooser(
+                        onAndroidToAndroid = { page = "AndroidToAndroid" },
+                        onAndroidToPc = { page = "AndroidToPc" }
+                    )
+                    "AndroidToPc" -> AndroidPcConnectScreen(pickedFiles)
+                    "AndroidToAndroid" -> AndroidToAndroidInfoScreen(onBack = { page = "TransferModes" })
                     "Activity" -> InfoScreen("Activity", "Your transfer and import history will appear here.")
                     else -> InfoScreen("Settings", "Choose your receive folder, theme, notifications and trusted devices here in a future update.")
                 }
@@ -357,4 +365,29 @@ private fun isAllowedTransferFile(file: PickedFile): Boolean {
     val blockedExtensions = setOf("apk", "apks", "aab", "xapk")
     val blockedMimeTypes = setOf("application/vnd.android.package-archive", "application/x-apk")
     return extension !in blockedExtensions && file.mime?.lowercase(Locale.ROOT) !in blockedMimeTypes
+}
+
+
+@Composable
+private fun TransferModeChooser(
+    onAndroidToAndroid: () -> Unit,
+    onAndroidToPc: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        SectionTitle("CHOOSE TRANSFER MODE")
+        Text("Select the device you want to transfer to.", color = Muted, fontSize = 12.sp)
+        ActionCard("Android → Android", "Files, media, APKs and supported app packages", onAndroidToAndroid, Modifier.fillMaxWidth())
+        ActionCard("Android → PC", "Files and media only · APK and app packages blocked", onAndroidToPc, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun AndroidToAndroidInfoScreen(onBack: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        TextButton(onClick = onBack) { Text("← Transfer modes", color = Cyan) }
+        SectionTitle("ANDROID → ANDROID")
+        Text("This route will support two-way files and media transfer, plus APK and supported app-package transfer between Android devices.", color = Muted, fontSize = 13.sp, lineHeight = 20.sp)
+        Text("App installation will use Android's supported package installer flow and will always require the receiving user's confirmation.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
+        Text("The Android-to-Android transport and installation workflow are not implemented yet.", color = Violet, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
 }
