@@ -44,3 +44,26 @@
 .selected-device small{font-size:10px;color:#9aa8c4;margin-top:4px}
 .security-note{font-size:10px;color:#a8b8d4;line-height:1.5}
 .security-note svg{flex:0 0 auto;color:#66e4c0}
+
+.update-centre{padding:8px 0 28px}
+.update-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:10px 0 22px}
+.update-heading small{font:8px 'DM Mono';letter-spacing:1.5px;color:#a99aff}
+.update-heading h1{font-size:28px;letter-spacing:-1px;margin:8px 0}
+.update-heading p{font-size:11px;color:#98a7c0;line-height:1.6;max-width:560px}
+.update-status,.update-channel,.update-pending{display:inline-flex;align-items:center;gap:6px;border:1px solid #ffffff18;border-radius:999px;padding:8px 11px;color:#d9c58e;background:#493a211f;font-size:9px;white-space:nowrap}
+.update-current{display:flex;align-items:center;gap:15px;padding:23px;border:1px solid #8e7bff3d;border-radius:15px;background:linear-gradient(110deg,#242449,#141d30 70%)}
+.update-current-icon,.update-card-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:#6d5cbd33;color:#b5a8ff}
+.update-current-copy{flex:1}
+.update-current-copy small{font:8px 'DM Mono';letter-spacing:1.3px;color:#9da9c3}
+.update-current-copy h2{font-size:19px;margin:6px 0}
+.update-current-copy h2 span{color:#b8aaff}
+.update-current-copy p,.update-card p,.update-release p{font-size:10px;color:#9aa8c0;line-height:1.65;margin:5px 0}
+.update-channel{color:#a9a0ff;background:#5145a022}
+.update-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.update-card{padding:18px;border:1px solid #ffffff14;border-radius:13px;background:#121c2c;min-width:0}
+.update-card h3{font-size:12px;margin:15px 0 7px}
+.update-card .update-pending{margin-top:12px;font-size:8px;white-space:normal;color:#d9c58e}
+.update-release{display:flex;gap:12px;align-items:flex-start;padding:16px;margin-top:14px;border-radius:12px;background:#151d31;border:1px solid #ffffff12;color:#b5a8ff}
+.update-release b{font-size:11px;color:#eaf0ff}
+.update-release p{margin-bottom:0}
+@media(max-width:800px){.update-grid{grid-template-columns:1fr}.update-heading{align-items:flex-start;flex-direction:column}.update-current{flex-wrap:wrap}.update-channel{margin-left:58px}}
