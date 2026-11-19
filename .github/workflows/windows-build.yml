@@ -1,7 +1,7 @@
 name: Windows build check
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "feat/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -20,3 +20,5 @@ jobs:
         run: npm run build
       - name: Check native Rust application
         run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Test transfer protocol validation
+        run: cargo test --manifest-path src-tauri/Cargo.toml
