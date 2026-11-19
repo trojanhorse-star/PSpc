@@ -172,7 +172,6 @@ fun MediaStoreScreen(
                 }
             }
         }
-    }
         Spacer(Modifier.height(8.dp))
         TextButton(onClick = {
             val mime = when (category) {
@@ -182,6 +181,7 @@ fun MediaStoreScreen(
             }
             onPickMedia(mime)
         }) { Text("Choose files instead") }
+    }
 }
 
 @Composable
