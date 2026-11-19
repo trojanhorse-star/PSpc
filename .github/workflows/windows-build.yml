@@ -1,7 +1,7 @@
 name: Windows build check
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "feat/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -18,5 +18,27 @@ jobs:
         run: npm install
       - name: Build frontend
         run: npm run build
+      - name: Generate temporary Windows build icon
+        shell: pwsh
+        run: |
+          @'
+          import os, struct
+          os.makedirs("src-tauri/icons", exist_ok=True)
+          width = height = 32
+          pixels = bytearray()
+          for y in range(height - 1, -1, -1):
+              for x in range(width):
+                  # Plazma purple tile with a simple white transfer mark.
+                  mark = (8 <= x <= 12 and 6 <= y <= 25) or (12 <= x <= 23 and 6 <= y <= 10) or (19 <= x <= 23 and 10 <= y <= 16) or (12 <= x <= 19 and 16 <= y <= 20)
+                  pixels += bytes((245, 245, 255, 255) if mark else (112, 48, 190, 255))
+          mask = bytes(((width + 31) // 32) * 4 * height)
+          header = struct.pack("<IIIHHIIIIII", 40, width, height * 2, 1, 32, 0, len(pixels) + len(mask), 0, 0, 0, 0)
+          dib = header + pixels + mask
+          entry = struct.pack("<BBBBHHII", width, height, 0, 0, 1, 32, len(dib), 22)
+          with open("src-tauri/icons/icon.ico", "wb") as f:
+              f.write(struct.pack("<HHH", 0, 1, 1) + entry + dib)
+          '@ | python -
       - name: Check native Rust application
         run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Test transfer protocol validation
+        run: cargo test --manifest-path src-tauri/Cargo.toml
