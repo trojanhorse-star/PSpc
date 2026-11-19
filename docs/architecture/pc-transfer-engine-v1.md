@@ -8,6 +8,8 @@
 - Discovery returns the advertised fingerprint but always marks peers unauthenticated.
 - The sending client requires an explicit expected SHA-256 fingerprint and verifies the peer certificate during the TLS handshake. The TLS 1.3 handshake signature is verified by rustls; no trust-all verifier or plaintext fallback is used.
 - A transfer offer is validated and surfaced to the receiver UI. The receiver must explicitly accept or reject before payload streaming.
+- The listener caps concurrent unauthenticated connections at eight, rejects excess sockets, limits each source IP to twelve connection attempts per rolling minute, and times out TLS handshakes after ten seconds.
+- Before asking the user to approve an offer, the receiver checks available disk space against the advertised transfer size and rejects transfers that cannot fit.
 - Files are streamed in bounded 1 MiB chunks. Each chunk is SHA-256 checked and acknowledged; the complete file is checked against its manifest digest.
 - Received data is written to an application-private partial file and promoted to its final sanitized filename only after checksum validation.
 - Received files are inert; no file is executed or automatically opened.
@@ -42,8 +44,8 @@ DTO members use camelCase. Enum values use snake_case. Rust struct-variant field
 ## Required next security and reliability work
 
 1. Add mutual TLS or an equivalent authenticated sender identity proof, plus explicit paired-device trust/revocation.
-2. Add strict transfer/session quotas, idle connection timeouts, free-space checks and concurrent transfer limits.
-3. Add atomic destination reservation and collision-safe naming under concurrent receives.
+2. Add session-bound authentication tokens, comprehensive idle timeouts for every protocol phase, durable rate-limit state and abuse monitoring.
+3. Strengthen collision-safe destination reservation under concurrent receives and add tests for concurrent filename races.
 4. Add resume metadata and durable partial-file checkpoints.
 5. Add file-picker UX, folder traversal with path-component validation, and a persistent transfer queue.
 6. Run cross-platform fixture tests and physical two-PC LAN tests on different Windows firewall/network profiles.
