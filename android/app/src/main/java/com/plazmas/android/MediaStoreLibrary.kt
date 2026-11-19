@@ -108,7 +108,8 @@ fun MediaStoreScreen(
     media: List<PickedFile>,
     selected: List<PickedFile>,
     onLoadMedia: () -> Unit,
-    onAddToTransfer: (PickedFile) -> Unit
+    onAddToTransfer: (PickedFile) -> Unit,
+    onPickMedia: (String) -> Unit
 ) {
     val context = LocalContext.current
     var denied by remember(category) { mutableStateOf(false) }
@@ -125,10 +126,10 @@ fun MediaStoreScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        Text(category.uppercase(), color = Cyan, style = MaterialTheme.typography.labelLarge)
+        Text(category.uppercase(), color = Color(0xFF69E8FF), style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(8.dp))
         Text("Browse media already on this phone. Plazma S only reads items Android makes available in this library.",
-            color = Muted, style = MaterialTheme.typography.bodySmall)
+            color = Color(0xFF9AA8C4), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(12.dp))
         if (!MediaStoreLibrary.hasPermission(context, category)) {
             Button(onClick = { permissionLauncher.launch(MediaStoreLibrary.requiredPermissions(category)) }) {
@@ -137,11 +138,11 @@ fun MediaStoreScreen(
             if (denied) {
                 Spacer(Modifier.height(8.dp))
                 Text("Access was not granted. You can still use the optional file picker in Files.",
-                    color = Violet, style = MaterialTheme.typography.bodySmall)
+                    color = Color(0xFFAA91FF), style = MaterialTheme.typography.bodySmall)
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${media.size} items", color = Cyan, modifier = Modifier.weight(1f))
+                Text("${media.size} items", color = Color(0xFF69E8FF), modifier = Modifier.weight(1f))
                 TextButton(onClick = onLoadMedia) { Text("Refresh") }
             }
             if (media.isEmpty()) {
@@ -149,7 +150,7 @@ fun MediaStoreScreen(
                     Text("No $category found")
                     Spacer(Modifier.height(6.dp))
                     Text("New items appear here automatically when you reopen or refresh this section.",
-                        color = Muted, style = MaterialTheme.typography.bodySmall)
+                        color = Color(0xFF9AA8C4), style = MaterialTheme.typography.bodySmall)
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -161,7 +162,7 @@ fun MediaStoreScreen(
                             Spacer(Modifier.width(11.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(item.name, color = Color.White, maxLines = 1)
-                                Text(formatSize(item.size), color = Muted, style = MaterialTheme.typography.labelSmall)
+                                Text(formatSize(item.size), color = Color(0xFF9AA8C4), style = MaterialTheme.typography.labelSmall)
                             }
                             TextButton(onClick = { onAddToTransfer(item) }, enabled = !alreadySelected) {
                                 Text(if (alreadySelected) "Added" else "Add")
@@ -172,6 +173,15 @@ fun MediaStoreScreen(
             }
         }
     }
+        Spacer(Modifier.height(8.dp))
+        TextButton(onClick = {
+            val mime = when (category) {
+                "Images" -> "image/*"
+                "Videos" -> "video/*"
+                else -> "audio/*"
+            }
+            onPickMedia(mime)
+        }) { Text("Choose files instead") }
 }
 
 @Composable
@@ -196,7 +206,7 @@ private fun MediaStoreThumbnail(item: PickedFile, category: String) {
                 "Videos" -> Icons.Outlined.VideoLibrary
                 else -> Icons.Outlined.MusicNote
             }
-            Icon(icon, contentDescription = null, tint = Cyan)
+            Icon(icon, contentDescription = null, tint = Color(0xFF69E8FF))
         }
     }
 }
