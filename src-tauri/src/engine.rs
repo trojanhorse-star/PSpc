@@ -243,6 +243,8 @@ async fn receive_offer<S: AsyncRead + AsyncWrite + Unpin>(stream: &mut S, app: &
     let offer = match message { ControlMessage::Offer(offer) => offer, _ => return Err("expected transfer offer".into()) };
     protocol::validate_offer(&offer).map_err(|e| e.to_string())?;
     if offer.total_bytes > MAX_TRANSFER_BYTES { return Err("transfer exceeds the 100 GiB safety limit".into()); }
+    let available = fs2::available_space(receive_dir).map_err(|e| format!("check receiver free space: {e}"))?;
+    if offer.total_bytes > available { return Err(format!("not enough free disk space: transfer needs {} bytes, only {} bytes are available", offer.total_bytes, available)); }
     let (tx, rx) = oneshot::channel();
     {
         let mut requests = pending.lock().await;
