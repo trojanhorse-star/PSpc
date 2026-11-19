@@ -252,7 +252,9 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, o
                 Spacer(Modifier.height(8.dp))
                 Text("Send files to a nearby Plazma S PC over the same Wi-Fi network. Choose a PC, verify its identity and approve the transfer on the receiving computer.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                 Spacer(Modifier.height(10.dp))
-                Button(onClick = onTransfer, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A7892), contentColor = Color.White)) { Icon(Icons.Outlined.Wifi, contentDescription = null); Spacer(Modifier.width(7.dp)); Text("Find a nearby PC", fontWeight = FontWeight.Bold) }\n                Spacer(Modifier.height(9.dp))\n                Text("SAME WI-FI · ENCRYPTED CONNECTION · APPROVAL REQUIRED", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
+                Button(onClick = onTransfer, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A7892), contentColor = Color.White)) { Icon(Icons.Outlined.Wifi, contentDescription = null); Spacer(Modifier.width(7.dp)); Text("Find a nearby PC", fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.height(9.dp))
+                Text("SAME WI-FI · ENCRYPTED CONNECTION · APPROVAL REQUIRED", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
             }
         }
     }
