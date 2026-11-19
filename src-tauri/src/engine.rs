@@ -3,13 +3,14 @@ use crate::protocol::{self, ControlMessage, DeviceIdentity, DevicePlatform, File
 use hex::FromHex;
 use mdns_sd::{ServiceDaemon, ServiceInfo};
 use rcgen::generate_simple_self_signed;
-use rustls::{pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName}, ClientConfig, ServerConfig};
+use rustls::{pki_types::{CertificateDer, PrivateKeyDer, ServerName}, ClientConfig, ServerConfig};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, fs, io::{BufReader, Read}, path::{Path, PathBuf}, sync::Arc, time::Duration};
 use tauri::{AppHandle, Emitter, Manager, State};
-use tokio::{fs as async_fs, io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::TcpListener, sync::{oneshot, Mutex}, task::JoinHandle};
+use tokio::{fs as async_fs, io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::TcpListener, sync::{oneshot, Mutex}};
+use tauri::async_runtime::JoinHandle;
 use tokio_rustls::{TlsAcceptor, TlsConnector};
 use uuid::Uuid;
 
