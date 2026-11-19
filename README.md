@@ -9,9 +9,14 @@ Plazma S is a cross-device, peer-to-peer file-transfer product. The Windows appl
 - Frontend-to-Rust command bridge (`get_app_status`).
 - Windows NSIS and MSI bundle targets.
 - Versioned, platform-neutral transfer protocol v1 DTOs and manifest validation tests.
-- Protocol specification at `docs/architecture/plazma-transfer-protocol-v1.md`.
+- TLS 1.3 receiver with per-installation certificate identity and SHA-256 certificate pin verification on the sending PC.
+- mDNS service advertisement only while the secure receiver is active; discovery results remain unauthenticated until fingerprint verification.
+- Explicit receiver approval, bounded chunk streaming, per-chunk acknowledgements and whole-file SHA-256 verification.
+- Android Kotlin JSON codec using kotlinx.serialization, with Rust-compatible field casing, enum values and tagged control-message envelopes.
+- Desktop send/receive controls for discovery, manual IP/fingerprint entry, sending regular files and approving incoming offers.
+- Protocol specifications at `docs/architecture/plazma-transfer-protocol-v1.md` and `docs/architecture/pc-transfer-engine-v1.md`.
 
-The protocol DTOs are an engineering foundation, not a working network transfer engine. Discovery, TLS pairing, receive approval, file streaming, queue persistence and resume are still to be implemented. The UI must never simulate a successful transfer.
+This is an initial PC↔PC file-transfer milestone, not the finished product. Mutual TLS sender authentication, persistent pairing/revocation, folders, pause/resume, durable queues, progress history, and Android network transport remain follow-up work. No physical two-PC transfer test is claimed yet.
 
 ## Product scope
 
