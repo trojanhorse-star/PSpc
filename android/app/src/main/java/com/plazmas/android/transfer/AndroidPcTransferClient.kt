@@ -140,10 +140,11 @@ class AndroidPcTransferClient(private val context: Context) {
             totalBytes = totalBytes
         )
         val trustManager = PinnedPcTrustManager(peer.fingerprint)
-        if (Security.getProvider(Conscrypt.PROVIDER_NAME) == null) {
-            Security.insertProviderAt(Conscrypt.newProvider(), 1)
+        val conscryptProvider = Conscrypt.newProvider()
+        if (Security.getProvider(conscryptProvider.name) == null) {
+            Security.insertProviderAt(conscryptProvider, 1)
         }
-        val sslContext = SSLContext.getInstance("TLSv1.3", Conscrypt.PROVIDER_NAME)
+        val sslContext = SSLContext.getInstance("TLSv1.3", conscryptProvider)
         sslContext.init(null, arrayOf(trustManager), null)
         val socket = (sslContext.socketFactory.createSocket() as SSLSocket)
         socket.enabledProtocols = arrayOf("TLSv1.3")
