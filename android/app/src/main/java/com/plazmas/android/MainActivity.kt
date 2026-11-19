@@ -190,7 +190,7 @@ private fun PlazmaApp(
                 }
                 Spacer(Modifier.height(22.dp))
                 when (page) {
-                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, onPickMedia, { page = "Files" }, { page = "TransferModes" })
+                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, { page = "Media" }, { page = "Files" }, { page = "TransferModes" })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaHubScreen(onImages = { page = "Images" }, onVideos = { page = "Videos" }, onAudio = { page = "Audio" })
                     "Images" -> MediaScreen(pickedFiles, "Images", "image/*", onPickMedia, onRemovePicked)
