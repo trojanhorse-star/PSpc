@@ -1,18 +1,27 @@
 # Plazma S PC
 
-Plazma S PC is a Windows-first desktop application for private, direct file transfers between computers on the same local network.
+Plazma S is a cross-device, peer-to-peer file-transfer product. The Windows application is the first implementation target.
 
 ## Current implementation
 
-This branch introduces the first native application scaffold:
-
 - Tauri 2 desktop shell with a Rust backend.
-- React + TypeScript frontend, with a responsive Plazma S PC dashboard.
-- A working frontend-to-Rust command bridge (`get_app_status`).
+- React + TypeScript frontend and responsive Plazma S PC dashboard.
+- Frontend-to-Rust command bridge (`get_app_status`).
 - Windows NSIS and MSI bundle targets.
-- A least-privilege starting capability set (`core:default` only).
+- Versioned, platform-neutral transfer protocol v1 DTOs and manifest validation tests.
+- Protocol specification at `docs/architecture/plazma-transfer-protocol-v1.md`.
 
-The transfer engine, discovery, pairing, file access and media processing are **not implemented yet**. The UI labels these as upcoming rather than simulating successful transfers.
+The protocol DTOs are an engineering foundation, not a working network transfer engine. Discovery, TLS pairing, receive approval, file streaming, queue persistence and resume are still to be implemented. The UI must never simulate a successful transfer.
+
+## Product scope
+
+**Phase 1 — PC ↔ PC:** Windows computers can both send and receive. Implement discovery, secure pairing, explicit receive approval, chunked streaming, resumable queues, duplicate handling, integrity verification, local file/media management, advanced conversion, optional sync and backup, recycle/recovery, tray and notifications.
+
+**Phase 2 — PC ↔ Android:** Windows and Android devices can both send and receive using the same protocol.
+
+**Phase 3 — Android ↔ Android:** Android devices can both send and receive using the same protocol.
+
+The first Android release remains focused on files and media. APK transfer and installation are separate future capabilities.
 
 ## Development prerequisites
 
@@ -35,29 +44,27 @@ npm install
 npm run tauri build
 ```
 
-The generated MSI/NSIS installers are written under `src-tauri/target/release/bundle/`.
-
-## Product scope
-
-**Phase 1 — Windows to Windows:** local-network discovery, secure device pairing, bidirectional transfer, receive approval, resumable queues, duplicate handling, integrity verification, local file/media management, advanced conversion, optional sync and backup, recycle/recovery, tray and notifications.
-
-**Later phases:** Windows ↔ Android, then Android ↔ Android. The first release remains Windows-only.
+Installers are written under `src-tauri/target/release/bundle/`.
 
 ## Security principles
 
-- No automatic execution of received files.
-- Receiving-side approval before saving incoming files.
-- Explicit pairing and trusted-device controls.
-- Integrity verification before marking transfers complete.
-- No cloud relay for ordinary PC-to-PC transfers.
-- Network services must bind only to intended local interfaces and validate peer messages.
+- TLS 1.3 with pinned peer identity after explicit pairing; no plaintext fallback.
+- Receiver approval before incoming content is accepted.
+- Bounded manifests and chunks; validate names and paths on the receiver.
+- SHA-256 verification before promoting temporary files to final destinations.
+- Never automatically execute received files.
+- No cloud relay for ordinary local-network transfers.
+- Discovery announcements are untrusted hints, never proof of identity.
 
-## Architecture direction
+## Architecture
 
-- Tauri 2 + Rust for native desktop and networking.
-- React + TypeScript for the user interface.
-- SQLite for local settings and transfer history.
-- LAN discovery and an authenticated, encrypted peer protocol.
-- BLAKE3 for file integrity verification.
+- Tauri 2 + Rust for Windows native networking and file operations.
+- Kotlin + Jetpack Compose for Android.
+- React + TypeScript for the Windows user interface.
+- SQLite/Room for durable transfer state and trusted devices.
+- DNS-SD/mDNS discovery, manual-IP and QR fallbacks.
+- A single versioned bidirectional protocol for every platform pairing.
 
-See `docs/architecture/lan-transfer.md` for the first networking design notes.
+See:
+- `docs/architecture/lan-transfer.md`
+- `docs/architecture/plazma-transfer-protocol-v1.md`
