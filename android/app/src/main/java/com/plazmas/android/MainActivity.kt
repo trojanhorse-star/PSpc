@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,10 +34,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import java.io.File
 import java.util.Locale
 
@@ -53,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private val pickedFiles = mutableStateListOf<PickedFile>()
     private val receivedFiles = mutableStateListOf<ReceivedFile>()
     private val mediaFiles = mutableStateMapOf<String, List<PickedFile>>()
+    private val installedApps = mutableStateListOf<com.plazmas.android.transfer.InstalledAppEntry>()
 
     private val filePicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         uris.forEach { uri ->
@@ -74,11 +79,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         receiveSharedIntent(intent)
         refreshReceived()
+        refreshInstalledApps()
         setContent {
             PlazmaApp(
                 pickedFiles = pickedFiles,
                 receivedFiles = receivedFiles,
                 mediaFiles = mediaFiles,
+                installedApps = installedApps,
                 onPickFiles = { filePicker.launch(arrayOf("*/*")) },
                 onPickMedia = { mime -> mediaPicker.launch(arrayOf(mime)) },
                 onLoadMedia = { category ->
@@ -92,6 +99,21 @@ class MainActivity : ComponentActivity() {
                 },
                 onRemovePicked = { pickedFiles.remove(it) }
             )
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshInstalledApps()
+    }
+
+    private fun refreshInstalledApps() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val apps = runCatching { com.plazmas.android.transfer.InstalledAppCatalog.listLaunchableApps(this@MainActivity) }.getOrDefault(emptyList())
+            withContext(Dispatchers.Main) {
+                installedApps.clear()
+                installedApps.addAll(apps)
+            }
         }
     }
 
@@ -151,6 +173,7 @@ private fun PlazmaApp(
     pickedFiles: List<PickedFile>,
     receivedFiles: List<ReceivedFile>,
     mediaFiles: Map<String, List<PickedFile>>,
+    installedApps: List<com.plazmas.android.transfer.InstalledAppEntry>,
     onPickFiles: () -> Unit,
     onPickMedia: (String) -> Unit,
     onLoadMedia: (String) -> Unit,
@@ -208,7 +231,7 @@ private fun PlazmaApp(
                 }
                 Spacer(Modifier.height(22.dp))
                 when (page) {
-                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, { page = "Media" }, { page = "Files" }, { page = "TransferModes" })
+                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, installedApps, onPickFiles, { page = "Files" }, { page = "TransferModes" })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaHubScreen(onImages = { page = "Images" }, onVideos = { page = "Videos" }, onAudio = { page = "Audio" })
                     "Images" -> MediaStoreScreen("Images", mediaFiles["Images"].orEmpty(), pickedFiles,
@@ -232,7 +255,7 @@ private fun PlazmaApp(
 }
 
 @Composable
-private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, onMedia: () -> Unit, onReceived: () -> Unit, onTransfer: () -> Unit) {
+private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<com.plazmas.android.transfer.InstalledAppEntry>, onPick: () -> Unit, onReceived: () -> Unit, onTransfer: () -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 22.dp)) {
         item {
             Box(Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(
@@ -260,10 +283,20 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, o
             }
         }
         item {
-            SectionTitle("QUICK ACTIONS")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ActionCard("Browse media", "Photos, video & audio", onMedia, Modifier.weight(1f))
-                ActionCard("Received files", "Open your inbox", onReceived, Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionTitle("APPS ON THIS PHONE")
+                Spacer(Modifier.weight(1f))
+                Text(installedApps.size.toString(), color = Cyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (installedApps.isEmpty()) {
+            item { EmptyState("No launchable apps found", "Installed apps will appear here automatically when Android makes them visible.") }
+        } else {
+            items(installedApps.chunked(4), key = { row -> row.first().packageName }) { appRow ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Top) {
+                    appRow.forEach { app -> InstalledAppTile(app, Modifier.weight(1f)) }
+                    repeat(4 - appRow.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
         }
         item {
@@ -281,6 +314,45 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, o
                 Text("SAME WI-FI · ENCRYPTED CONNECTION · APPROVAL REQUIRED", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun InstalledAppTile(app: com.plazmas.android.transfer.InstalledAppEntry, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val icon = remember(app.packageName) {
+        runCatching {
+            context.packageManager.getApplicationIcon(app.packageName).toBitmap(144, 144).asImageBitmap()
+        }.getOrNull()
+    }
+    Column(
+        modifier = modifier.padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (icon != null) {
+            Image(
+                bitmap = icon,
+                contentDescription = "${app.label} app icon",
+                modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp))
+            )
+        } else {
+            Box(Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF17334F)), contentAlignment = Alignment.Center) {
+                Text(app.label.take(1).uppercase(), color = Cyan, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
+            }
+        }
+        Spacer(Modifier.height(7.dp))
+        Text(
+            app.label,
+            color = Color.White,
+            fontSize = 12.sp,
+            lineHeight = 15.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(formatSize(app.sizeBytes), color = Muted, fontSize = 10.sp, maxLines = 1)
     }
 }
 

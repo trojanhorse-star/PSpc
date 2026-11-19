@@ -13,7 +13,8 @@ data class InstalledAppEntry(
     val packageName: String,
     val versionName: String,
     val baseApk: File,
-    val splitApkCount: Int
+    val splitApkCount: Int,
+    val sizeBytes: Long
 )
 data class ExportedApk(val file: File, val contentUri: Uri, val app: InstalledAppEntry)
 
@@ -34,7 +35,8 @@ object InstalledAppCatalog {
                 packageName = info.packageName,
                 versionName = version,
                 baseApk = apk,
-                splitApkCount = info.splitSourceDirs?.size ?: 0
+                splitApkCount = info.splitSourceDirs?.size ?: 0,
+                sizeBytes = apk.length() + info.splitSourceDirs.orEmpty().sumOf { File(it).length() }
             )
         }.sortedBy { it.label.lowercase(Locale.ROOT) }
     }
