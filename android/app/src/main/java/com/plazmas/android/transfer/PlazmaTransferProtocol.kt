@@ -70,7 +70,7 @@ data class ChunkAcknowledgement(
     val chunkSha256: String
 )
 
-enum class TransferState {
+enum class ProtocolTransferState {
     QUEUED, AWAITING_APPROVAL, TRANSFERRING, VERIFYING,
     COMPLETE, REJECTED, CANCELLED, FAILED
 }
@@ -81,7 +81,7 @@ sealed interface ControlMessage {
     data class ChunkRequestMessage(val payload: ChunkRequest) : ControlMessage
     data class ChunkAcknowledgementMessage(val payload: ChunkAcknowledgement) : ControlMessage
     data class Cancel(val transferId: String) : ControlMessage
-    data class State(val transferId: String, val state: TransferState) : ControlMessage
+    data class State(val transferId: String, val state: ProtocolTransferState) : ControlMessage
 }
 
 object TransferProtocolValidation {
