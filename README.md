@@ -1,30 +1,23 @@
-# Plazma S PC
+# Plazma S
 
-Plazma S is a Windows-first, peer-to-peer file and app migration experience. The first release focuses on secure PC-to-PC transfers over a local network. Mobile-to-PC and Android-to-Android support are planned for a later phase.
+Plazma S is a family of private file and media transfer apps.
 
-## Project status
+## Projects
 
-The repository is being initialized. The first milestone is the Windows desktop foundation and a polished dashboard; transfer networking and file operations will be added in subsequent milestones.
+- **Plazma S PC** — Windows desktop app. See the existing desktop documentation below.
+- **Plazma S Android** — native Android companion in [android/](android/). The Android edition is scoped to files and media only; app migration is excluded.
 
-## Product decisions
+## Android
 
-- Optional folder synchronisation.
-- Advanced media conversion, including MP4 to MP3.
-- Automatic saving of received files to the laptop.
-- Windows startup enabled by default, with a user setting to change it.
-- Duplicate detection, transfer queue, integrity verification, security controls, recycle/recovery, backup, system tray, and notifications.
-- Named colour palettes rather than hex-code selection in the user interface.
-- PC-to-Android and Android-to-Android are later roadmap items.
+See [android/README.md](android/README.md) for prerequisites, build instructions and current implementation status.
 
-## Planned architecture
+## Windows desktop
 
-- Tauri 2 desktop shell.
-- React + TypeScript interface.
-- Rust transfer and system-integration core.
-- SQLite for local transfer history and settings.
-- Encrypted peer-to-peer connections with explicit device pairing and approval.
-- BLAKE3-based file integrity verification.
+The Windows foundation is maintained in `src-tauri/` with a React + TypeScript interface. Run the desktop app with:
 
-## Development
+```bash
+npm install
+npm run tauri dev
+```
 
-Development setup instructions will be added with the application scaffold. The app is not yet a working file-transfer client.
+See the desktop architecture notes in [docs/architecture/lan-transfer.md](docs/architecture/lan-transfer.md).
