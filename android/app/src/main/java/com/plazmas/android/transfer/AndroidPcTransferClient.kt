@@ -2,6 +2,7 @@ package com.plazmas.android.transfer
 
 import android.content.Context
 import android.net.nsd.NsdManager
+import android.net.wifi.WifiManager
 import android.net.nsd.NsdServiceInfo
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -37,9 +38,15 @@ data class DiscoveredPc(
 class AndroidPcTransferClient(private val context: Context) {
     private val nsd = context.getSystemService(Context.NSD_SERVICE) as NsdManager
     private var discovery: NsdManager.DiscoveryListener? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     fun discover(onPeer: (DiscoveredPc) -> Unit, onError: (String) -> Unit) {
         stopDiscovery()
+        val wifi = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        multicastLock = wifi.createMulticastLock("PlazmaS-LAN-discovery").apply {
+            setReferenceCounted(false)
+            acquire()
+        }
         val listener = object : NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(serviceType: String) = Unit
             override fun onServiceFound(service: NsdServiceInfo) {
@@ -67,11 +74,13 @@ class AndroidPcTransferClient(private val context: Context) {
             override fun onDiscoveryStopped(serviceType: String) = Unit
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
                 runCatching { nsd.stopServiceDiscovery(this) }
-                onError("LAN discovery could not start (code $errorCode)")
+                releaseMulticastLock()
+                onError("Could not search this Wi-Fi network (code $errorCode). Check that Wi-Fi is enabled and try again.")
             }
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
                 runCatching { nsd.stopServiceDiscovery(this) }
-                onError("LAN discovery could not stop (code $errorCode)")
+                releaseMulticastLock()
+                onError("Could not stop LAN discovery (code $errorCode)")
             }
         }
         discovery = listener
@@ -81,6 +90,12 @@ class AndroidPcTransferClient(private val context: Context) {
     fun stopDiscovery() {
         discovery?.let { runCatching { nsd.stopServiceDiscovery(it) } }
         discovery = null
+        releaseMulticastLock()
+    }
+
+    private fun releaseMulticastLock() {
+        multicastLock?.let { lock -> if (lock.isHeld) runCatching { lock.release() } }
+        multicastLock = null
     }
 
     suspend fun sendFiles(
