@@ -1,14 +1,13 @@
+import {useCallback,useEffect,useState} from "react";
+import {check,Update} from "@tauri-apps/plugin-updater";
 import {ArrowDownToLine,CheckCircle2,Clock3,RefreshCw,ShieldCheck,Sparkles} from "lucide-react";
-
 export default function UpdateCentre({version}:{version:string}){
- return <section className="update-centre">
-  <header className="update-heading"><div><small>PLAZMA S PC · SOFTWARE UPDATES</small><h1>Update centre</h1><p>Keep Plazma S secure and up to date. New versions are delivered when they are officially published.</p></div><span className="update-status"><Clock3 size={14}/> Update service setup pending</span></header>
-  <article className="update-current"><div className="update-current-icon"><CheckCircle2 size={25}/></div><div className="update-current-copy"><small>INSTALLED VERSION</small><h2>Plazma S PC <span>v{version}</span></h2><p>This is the version currently installed on this computer.</p></div><span className="update-channel">STABLE CHANNEL</span></article>
-  <div className="update-grid">
-   <article className="update-card"><div className="update-card-icon"><RefreshCw size={18}/></div><h3>Automatic update checks</h3><p>Plazma S will check for a newer published release and notify you when an update is available.</p><span className="update-pending">Updater connection not configured yet</span></article>
-   <article className="update-card"><div className="update-card-icon"><ShieldCheck size={18}/></div><h3>Verified updates</h3><p>Updates must be signed and verified before installation. The app should never install an untrusted package.</p><span className="update-pending">Signing setup required</span></article>
-   <article className="update-card"><div className="update-card-icon"><ArrowDownToLine size={18}/></div><h3>Download and install</h3><p>When an update is published, Plazma S will show its version and release notes, download it, verify it, and guide installation.</p><span className="update-pending">Installation flow pending</span></article>
-  </div>
-  <div className="update-release"><Sparkles size={18}/><div><b>New version notifications</b><p>Release notes, download progress, verification, and restart-to-finish updates belong here—not in the transfer workspace.</p></div></div>
- </section>;
+ const [state,setState]=useState("Checking for updates…");const [available,setAvailable]=useState<Update|null>(null);const [error,setError]=useState("");const [checking,setChecking]=useState(false);
+ const inspect=useCallback(async()=>{setChecking(true);setError("");try{const update=await check();setAvailable(update);setState(update?"Update available — installs automatically at next launch":"You are up to date");}catch(e){setError(String(e));setState("Update service unavailable");}finally{setChecking(false);}},[]);
+ useEffect(()=>{void inspect();},[inspect]);
+ return <section className="update-centre"><header className="update-heading"><div><small>PLAZMA S PC · SOFTWARE UPDATES</small><h1>Update centre</h1><p>Official releases are checked automatically. Updates install silently at application startup.</p></div><span className="update-status"><Clock3 size={14}/> {state}</span></header>
+ <article className="update-current"><div className="update-current-icon"><CheckCircle2 size={25}/></div><div className="update-current-copy"><small>INSTALLED VERSION</small><h2>Plazma S PC <span>v{version}</span></h2><p>{state}</p></div><span className="update-channel">STABLE CHANNEL</span></article>
+ {available&&<article className="update-card"><div className="update-card-icon"><ArrowDownToLine size={18}/></div><h3>Version {available.version} is available</h3><p>{available.body||"An official Plazma S update is ready. It installs silently at the next application startup."}</p><span className="update-pending">Verified update · Automatic installation</span></article>}{error&&<div className="notice" role="alert">{error}</div>}
+ <div className="update-grid"><article className="update-card"><div className="update-card-icon"><RefreshCw size={18}/></div><h3>Automatic update checks</h3><p>Checks the official release channel at startup and when you open this page.</p><button className="link" disabled={checking} onClick={()=>void inspect()}>{checking?"Checking…":"Check now"}</button></article><article className="update-card"><div className="update-card-icon"><ShieldCheck size={18}/></div><h3>Signed updates only</h3><p>Cryptographic signature verification is mandatory. Modified or untrusted packages are rejected.</p></article><article className="update-card"><div className="update-card-icon"><ArrowDownToLine size={18}/></div><h3>Silent installation</h3><p>Updates install at startup before transfers begin, then Plazma S restarts on the new version.</p></article></div>
+ <div className="update-release"><Sparkles size={18}/><div><b>Release channel</b><p>Stable · GitHub Releases · Signed NSIS update packages</p></div></div></section>;
 }
