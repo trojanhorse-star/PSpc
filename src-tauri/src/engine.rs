@@ -27,7 +27,7 @@ pub struct EngineState {
     mdns: Arc<Mutex<Option<ServiceDaemon>>>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PendingOffer {
     transfer_id: String,
