@@ -43,7 +43,7 @@ object InstalledAppCatalog {
         require(app.baseApk.isFile && app.baseApk.canRead()) { "APK is no longer accessible" }
         val folder = File(context.cacheDir, "apk-exports").apply { mkdirs() }
         val safeLabel = TransferFileSafety.safeFileName(app.label)
-        val destination = File(folder, "$" + "safeLabel-v" + app.versionName + ".apk")
+        val destination = File(folder, safeLabel + "-v" + app.versionName + ".apk")
         app.baseApk.copyTo(destination, overwrite = true)
         val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", destination)
         return ExportedApk(destination, uri, app)

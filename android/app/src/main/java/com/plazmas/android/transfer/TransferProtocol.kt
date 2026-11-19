@@ -36,8 +36,8 @@ object TransferFileSafety {
     }
     fun sha256(context: Context, uri: Uri): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        context.contentResolver.openInputStream(uri).use { input ->
-            requireNotNull(input) { "Cannot open selected file" }
+        val stream = requireNotNull(context.contentResolver.openInputStream(uri)) { "Cannot open selected file" }
+        stream.use { input ->
             val buffer = ByteArray(256 * 1024)
             while (true) {
                 val count = input.read(buffer)
