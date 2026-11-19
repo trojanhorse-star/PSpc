@@ -90,6 +90,7 @@ class AndroidPcTransferClient(private val context: Context) {
         onProgress: (Long, Long) -> Unit = { _, _ -> }
     ) = withContext(Dispatchers.IO) {
         require(files.isNotEmpty()) { "Choose at least one file." }
+        require(files.none { isAndroidPackage(it.name, it.mime) }) { "Android app packages cannot be transferred with Plazma S Android." }
         require(peer.fingerprint.matches(Regex("[0-9a-f]{64}"))) { "The PC certificate fingerprint is invalid." }
         val manifest = files.map { picked ->
             val digest = MessageDigest.getInstance("SHA-256")
@@ -184,7 +185,7 @@ class AndroidPcTransferClient(private val context: Context) {
                                     ack.payload.chunkSha256 == chunkHash) { "PC chunk verification failed." }
                                 offset += count
                                 completed += count
-                                onProgress(completed, totalBytes)
+                                withContext(Dispatchers.Main) { onProgress(completed, totalBytes) }
                             }
                             require(offset == manifest[index].sizeBytes) { "Source file changed during transfer." }
                         } ?: error("Cannot reopen ${picked.name}")
@@ -215,6 +216,12 @@ class AndroidPcTransferClient(private val context: Context) {
         val bytes = ByteArray(size)
         input.readFully(bytes)
         return PlazmaProtocolJson.decode(bytes.toString(Charsets.UTF_8))
+    }
+
+    private fun isAndroidPackage(name: String, mime: String?): Boolean {
+        val extension = name.substringAfterLast('.', "").lowercase()
+        return extension in setOf("apk", "apks", "aab", "xapk") ||
+            mime?.lowercase() in setOf("application/vnd.android.package-archive", "application/x-apk")
     }
 
     private fun safeDisplayName(name: String): String =
