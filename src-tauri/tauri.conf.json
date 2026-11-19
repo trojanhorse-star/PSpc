@@ -27,10 +27,27 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
-    "icon": ["icons/icon.ico"],
+    "targets": [
+      "nsis",
+      "msi"
+    ],
+    "icon": [
+      "icons/icon.ico"
+    ],
     "category": "Utility",
     "shortDescription": "Private PC-to-PC transfers",
-    "longDescription": "Secure, direct file transfers between Windows computers on your local network."
+    "longDescription": "Secure, direct file transfers between Windows computers on your local network.",
+    "createUpdaterArtifacts": false
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "endpoints": [
+        "https://github.com/trojanhorse-star/PSpc/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
   }
 }
