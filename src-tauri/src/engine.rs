@@ -474,7 +474,20 @@ pub async fn send_files(app: AppHandle, address: String, port: u16, expected_fin
 
 #[cfg(test)]
 mod tests {
-    use super::safe_name;
+    use super::{is_android_app_package, safe_name};
+    use crate::protocol::FileManifestEntry;
+
+    fn manifest(name: &str, mime: Option<&str>) -> FileManifestEntry {
+        FileManifestEntry { file_id: "id".into(), file_name: name.into(), size_bytes: 1, mime_type: mime.map(str::to_owned), sha256: None, relative_path: None }
+    }
+
+    #[test]
+    fn android_package_files_are_detected_by_extension_and_mime() {
+        assert!(is_android_app_package(&manifest("release.APK", None)));
+        assert!(is_android_app_package(&manifest("bundle.bin", Some("application/vnd.android.package-archive"))));
+        assert!(is_android_app_package(&manifest("split.apks", None)));
+        assert!(!is_android_app_package(&manifest("photo.jpg", Some("image/jpeg"))));
+    }
 
     #[test]
     fn strips_path_components_and_reserved_characters() {
