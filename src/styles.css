@@ -169,3 +169,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ps-ice);outline
 @media(max-width:780px){.content{padding:18px 14px}.topbar{padding:0 14px}.hero-grid,.bottom-grid{grid-template-columns:1fr}.hero-copy{width:68%;padding:22px}.hero-copy h2{font-size:29px}.device-art{opacity:.72;width:43%}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar{box-shadow:8px 0 24px #02061288}}
 @media(max-width:520px){.hero{min-height:370px}.hero-copy{width:100%;padding:22px}.device-art{width:100%;height:145px;top:auto;bottom:0;opacity:.65}.pc-back{top:12px}.pc-front{top:48px}.beam{top:40px}.hero-copy h2{font-size:28px}.stats{gap:8px}.stats article{padding:11px}.page-heading{align-items:flex-start;gap:12px}.page-heading h1{font-size:22px}.page-heading>.primary{padding:9px;font-size:8px}.media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+
+/* Keep the main workspace flexible and make unfinished routes explicit. */
+.app-shell>main{min-width:0;flex:1}
+.route-placeholder{min-height:220px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;margin-top:20px;padding:28px;background:radial-gradient(ellipse at 85% 15%,#554b9b55,transparent 48%),linear-gradient(145deg,#1b2942,#101a2c 70%,#102c3b);border:1px solid #9a8cff55;box-shadow:inset 0 1px #ffffff24,0 18px 42px #02061199}
+.route-placeholder>small{font:8px 'DM Mono';letter-spacing:1.5px;color:#8deaff}
+.route-placeholder h2{margin:0;font-size:22px}
+.route-placeholder p{max-width:560px;margin:0 0 8px;color:#a9b7d0;font-size:11px;line-height:1.8}
