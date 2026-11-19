@@ -155,6 +155,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(engine::EngineState::default())
         .invoke_handler(tauri::generate_handler![get_app_status,discover_peers,scan_media_library,scan_media_folders,open_media_file,convert_video_to_mp3,
             engine::start_receiver,engine::stop_receiver,engine::respond_to_transfer_offer,engine::send_files])
