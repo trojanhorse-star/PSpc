@@ -7,7 +7,7 @@ use rustls::{pki_types::{CertificateDer, PrivateKeyDer, ServerName}, ClientConfi
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, fs, io::{BufReader, Read}, path::{Path, PathBuf}, sync::Arc, time::Duration};
+use std::{collections::HashMap, fs, io::{BufReader, Read}, net::IpAddr, path::{Path, PathBuf}, sync::Arc, time::{Duration, Instant}};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::{fs as async_fs, io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt}, net::TcpListener, sync::{oneshot, Mutex}};
 use tauri::async_runtime::JoinHandle;
@@ -20,11 +20,25 @@ const CHUNK_BYTES: usize = 1024 * 1024;
 const MAX_TRANSFER_BYTES: u64 = 100 * 1024 * 1024 * 1024;
 const MAX_PENDING_TRANSFERS: usize = 8;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct EngineState {
     pending: Arc<Mutex<HashMap<String, oneshot::Sender<bool>>>>,
     listener: Arc<Mutex<Option<JoinHandle<()>>>>,
     mdns: Arc<Mutex<Option<ServiceDaemon>>>,
+    connection_slots: Arc<tokio::sync::Semaphore>,
+    connection_attempts: Arc<Mutex<HashMap<IpAddr, Vec<Instant>>>>,
+}
+
+impl Default for EngineState {
+    fn default() -> Self {
+        Self {
+            pending: Arc::new(Mutex::new(HashMap::new())),
+            listener: Arc::new(Mutex::new(None)),
+            mdns: Arc::new(Mutex::new(None)),
+            connection_slots: Arc::new(tokio::sync::Semaphore::new(8)),
+            connection_attempts: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -176,18 +190,31 @@ pub async fn start_receiver(app: AppHandle, state: State<'_, EngineState>, port:
     daemon.register(service).map_err(|e| format!("advertise receiver: {e}"))?;
 
     let pending = state.pending.clone();
+    let connection_slots = state.connection_slots.clone();
+    let connection_attempts = state.connection_attempts.clone();
     let app_handle = app.clone();
     let receive_dir = directory.join("Received");
     async_fs::create_dir_all(&receive_dir).await.map_err(|e| e.to_string())?;
     let task = tauri::async_runtime::spawn(async move {
         loop {
-            let (socket, _) = match listener.accept().await { Ok(v) => v, Err(_) => break };
+            let (socket, peer) = match listener.accept().await { Ok(v) => v, Err(_) => break };
+            // Bound unauthenticated sockets and throttle repeated connection attempts per source IP.
+            let now = Instant::now();
+            let allowed = {
+                let mut attempts = connection_attempts.lock().await;
+                attempts.retain(|_, times| { times.retain(|time| now.duration_since(*time) < Duration::from_secs(60)); !times.is_empty() });
+                let times = attempts.entry(peer.ip()).or_default();
+                if times.len() >= 12 { false } else { times.push(now); true }
+            };
+            if !allowed { continue; }
+            let permit = match connection_slots.clone().try_acquire_owned() { Ok(permit) => permit, Err(_) => continue };
             let acceptor = tls.clone();
             let pending = pending.clone();
             let app_handle = app_handle.clone();
             let receive_dir = receive_dir.clone();
             tokio::spawn(async move {
-                if let Ok(mut stream) = acceptor.accept(socket).await {
+                let _permit = permit;
+                if let Ok(Ok(mut stream)) = tokio::time::timeout(Duration::from_secs(10), acceptor.accept(socket)).await {
                     let _ = receive_offer(&mut stream, &app_handle, &pending, &receive_dir).await;
                 }
             });
