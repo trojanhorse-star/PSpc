@@ -471,4 +471,22 @@ mod tests {
         let name = "a".repeat(300);
         assert_eq!(safe_name(&name).len(), 160);
     }
+
+    #[tokio::test]
+    async fn verified_promotion_never_overwrites_existing_files() {
+        let directory = std::env::temp_dir().join(format!("plazma-promotion-{}", uuid::Uuid::new_v4()));
+        tokio::fs::create_dir_all(&directory).await.unwrap();
+        let existing = directory.join("report.txt");
+        tokio::fs::write(&existing, b"keep this").await.unwrap();
+        let part = directory.join("incoming.part");
+        tokio::fs::write(&part, b"new content").await.unwrap();
+
+        let promoted = super::promote_verified_part(&part, &directory, "report.txt").await.unwrap();
+        assert_ne!(promoted, existing);
+        assert_eq!(tokio::fs::read(&existing).await.unwrap(), b"keep this");
+        assert_eq!(tokio::fs::read(&promoted).await.unwrap(), b"new content");
+        assert!(!part.exists());
+
+        tokio::fs::remove_dir_all(directory).await.unwrap();
+    }
 }
