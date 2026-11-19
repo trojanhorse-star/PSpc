@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private val pickedFiles = mutableStateListOf<PickedFile>()
     private val receivedFiles = mutableStateListOf<ReceivedFile>()
     private val mediaFiles = mutableStateMapOf<String, List<PickedFile>>()
+    private val installedApps = mutableStateListOf<com.plazmas.android.transfer.InstalledAppEntry>()
 
     private val filePicker = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         uris.forEach { uri ->
@@ -74,11 +75,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         receiveSharedIntent(intent)
         refreshReceived()
+        refreshInstalledApps()
         setContent {
             PlazmaApp(
                 pickedFiles = pickedFiles,
                 receivedFiles = receivedFiles,
                 mediaFiles = mediaFiles,
+                installedApps = installedApps,
                 onPickFiles = { filePicker.launch(arrayOf("*/*")) },
                 onPickMedia = { mime -> mediaPicker.launch(arrayOf(mime)) },
                 onLoadMedia = { category ->
@@ -92,6 +95,21 @@ class MainActivity : ComponentActivity() {
                 },
                 onRemovePicked = { pickedFiles.remove(it) }
             )
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshInstalledApps()
+    }
+
+    private fun refreshInstalledApps() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val apps = runCatching { com.plazmas.android.transfer.InstalledAppCatalog.listLaunchableApps(this@MainActivity) }.getOrDefault(emptyList())
+            withContext(Dispatchers.Main) {
+                installedApps.clear()
+                installedApps.addAll(apps)
+            }
         }
     }
 
@@ -151,6 +169,7 @@ private fun PlazmaApp(
     pickedFiles: List<PickedFile>,
     receivedFiles: List<ReceivedFile>,
     mediaFiles: Map<String, List<PickedFile>>,
+    installedApps: List<com.plazmas.android.transfer.InstalledAppEntry>,
     onPickFiles: () -> Unit,
     onPickMedia: (String) -> Unit,
     onLoadMedia: (String) -> Unit,
@@ -208,7 +227,7 @@ private fun PlazmaApp(
                 }
                 Spacer(Modifier.height(22.dp))
                 when (page) {
-                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, onPickFiles, { page = "Media" }, { page = "Files" }, { page = "TransferModes" })
+                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, installedApps, onPickFiles, { page = "Files" }, { page = "TransferModes" })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaHubScreen(onImages = { page = "Images" }, onVideos = { page = "Videos" }, onAudio = { page = "Audio" })
                     "Images" -> MediaStoreScreen("Images", mediaFiles["Images"].orEmpty(), pickedFiles,
@@ -232,7 +251,7 @@ private fun PlazmaApp(
 }
 
 @Composable
-private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, onMedia: () -> Unit, onReceived: () -> Unit, onTransfer: () -> Unit) {
+private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<com.plazmas.android.transfer.InstalledAppEntry>, onPick: () -> Unit, onReceived: () -> Unit, onTransfer: () -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 22.dp)) {
         item {
             Box(Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(
@@ -260,10 +279,27 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, onPick: () -> Unit, o
             }
         }
         item {
-            SectionTitle("QUICK ACTIONS")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ActionCard("Browse media", "Photos, video & audio", onMedia, Modifier.weight(1f))
-                ActionCard("Received files", "Open your inbox", onReceived, Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionTitle("APPS ON THIS PHONE")
+                Spacer(Modifier.weight(1f))
+                Text(installedApps.size.toString(), color = Cyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (installedApps.isEmpty()) {
+            item { EmptyState("No launchable apps found", "Installed apps will appear here automatically when Android makes them visible.") }
+        } else {
+            items(installedApps, key = { it.packageName }) { app ->
+                Row(Modifier.fillMaxWidth().shadow(7.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(Color(0xFF1A2C49), Color(0xFF101B30)))).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF17334F)), contentAlignment = Alignment.Center) {
+                        Text(app.label.take(1).uppercase(), color = Cyan, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(app.label, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
+                        Text("Version " + app.versionName, color = Muted, fontSize = 10.sp)
+                    }
+                    if (app.splitApkCount > 0) Text("Split app", color = Violet, fontSize = 9.sp)
+                }
             }
         }
         item {
