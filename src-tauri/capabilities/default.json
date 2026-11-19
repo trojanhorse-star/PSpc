@@ -1,0 +1,1 @@
+{"$schema":"../gen/schemas/desktop-schema.json","identifier":"default","description":"Default desktop permissions for Plazma S PC","windows":["main"],"permissions":["core:default"]}
