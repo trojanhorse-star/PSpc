@@ -228,8 +228,15 @@ fun MediaStoreScreen(
                             Icon(Icons.Outlined.PlayArrow, contentDescription = "Play audio", tint = Color(0xFFE3E9FF))
                         }
                         SelectionCircle(isSelected) { onToggleSelection(item) }
-                        IconButton(onClick = { }) {
-                            Icon(Icons.Outlined.MoreVert, contentDescription = "More options", tint = Color(0xFF9AA8C4))
+                        IconButton(onClick = {
+                            runCatching {
+                                val shareIntent = Intent(Intent.ACTION_SEND).setType(item.mime ?: "audio/*")
+                                    .putExtra(Intent.EXTRA_STREAM, item.uri)
+                                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                context.startActivity(Intent.createChooser(shareIntent, "Share audio"))
+                            }
+                        }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = "Share audio", tint = Color(0xFF9AA8C4))
                         }
                     }
                 }
