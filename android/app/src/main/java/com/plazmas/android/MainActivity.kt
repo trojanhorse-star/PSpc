@@ -9,10 +9,21 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +45,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -181,37 +197,51 @@ private fun PlazmaApp(
     onRemovePicked: (PickedFile) -> Unit
 ) {
     var page by remember { mutableStateOf("Home") }
+    var drawerOpen by remember { mutableStateOf(false) }
+    var homeActionsVisible by remember { mutableStateOf(false) }
+    var homeActionsToken by remember { mutableIntStateOf(0) }
+    LaunchedEffect(homeActionsVisible, homeActionsToken) {
+        if (homeActionsVisible) {
+            delay(5_000)
+            homeActionsVisible = false
+        }
+    }
+    val screenOffset by animateDpAsState(if (drawerOpen) (-238).dp else 0.dp, label = "rightDrawerPush")
+    val drawerOffset by animateDpAsState(if (drawerOpen) 0.dp else 250.dp, label = "rightDrawerSlide")
     MaterialTheme(colorScheme = darkColorScheme(
         primary = Cyan, secondary = Violet, background = Night, surface = Panel,
         onBackground = Color.White, onSurface = Color.White
     )) {
+        Box(Modifier.fillMaxSize()) {
         Scaffold(
+            modifier = Modifier.fillMaxSize().offset(x = screenOffset),
             containerColor = Night,
             bottomBar = {
                 NavigationBar(containerColor = Color(0xFF101A30), contentColor = Muted, tonalElevation = 12.dp) {
-                    val tabs = listOf(
-                        Triple("Home", Icons.Outlined.Home, "Home"),
-                        Triple("Files", Icons.Outlined.FolderOpen, "Files"),
-                        Triple("Media", Icons.Outlined.Image, "Media"),
-                        Triple("Activity", Icons.Outlined.History, "Activity"),
-                        Triple("Settings", Icons.Outlined.Settings, "Settings")
-                    )
-                    tabs.forEach { (label, icon, key) ->
-                        NavigationBarItem(
-                            selected = page == key,
-                            onClick = { page = key },
-                            icon = { Icon(icon, contentDescription = label) },
-                            label = { Text(label, fontSize = 10.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Cyan, selectedTextColor = Cyan,
-                                indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted
-                            )
-                        )
+                    NavigationBarItem(selected = page == "Files", onClick = { page = "Files"; drawerOpen = false; homeActionsVisible = false },
+                        icon = { Icon(Icons.Outlined.FolderOpen, contentDescription = "Files") }, label = { Text("Files", fontSize = 9.sp) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Cyan, selectedTextColor = Cyan, indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted))
+                    NavigationBarItem(selected = page == "Images", onClick = { page = "Images"; onLoadMedia("Images"); drawerOpen = false; homeActionsVisible = false },
+                        icon = { Icon(Icons.Outlined.Image, contentDescription = "Images") }, label = { Text("Images", fontSize = 9.sp) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Cyan, selectedTextColor = Cyan, indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted))
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Surface(onClick = { page = "Home"; drawerOpen = false; homeActionsVisible = true; homeActionsToken++ },
+                            modifier = Modifier.width(78.dp).height(48.dp).offset(y = (-7).dp).shadow(16.dp, RoundedCornerShape(28.dp)),
+                            shape = RoundedCornerShape(28.dp), color = Color(0xFF079B69), contentColor = Color.White) {
+                            Box(contentAlignment = Alignment.Center) { ChainLinkGlyph(Modifier.size(width = 42.dp, height = 30.dp)) }
+                        }
                     }
+                    NavigationBarItem(selected = page == "Videos", onClick = { page = "Videos"; onLoadMedia("Videos"); drawerOpen = false; homeActionsVisible = false },
+                        icon = { Text("▶", color = if (page == "Videos") Cyan else Muted, fontSize = 18.sp) }, label = { Text("Videos", fontSize = 9.sp) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Cyan, selectedTextColor = Cyan, indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted))
+                    NavigationBarItem(selected = page == "Audio", onClick = { page = "Audio"; onLoadMedia("Audio"); drawerOpen = false; homeActionsVisible = false },
+                        icon = { Text("♫", color = if (page == "Audio") Cyan else Muted, fontSize = 19.sp) }, label = { Text("Audio", fontSize = 9.sp) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Cyan, selectedTextColor = Cyan, indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted))
                 }
             }
         ) { padding ->
-            Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF101B34), Night, Color(0xFF080D1C)))).padding(padding).padding(horizontal = 18.dp)) {
+            Box(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF101B34), Night, Color(0xFF080D1C)))).padding(horizontal = 18.dp)) {
                 Spacer(Modifier.height(18.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(44.dp).shadow(12.dp, RoundedCornerShape(15.dp)).clip(RoundedCornerShape(15.dp)).background(
@@ -225,21 +255,27 @@ private fun PlazmaApp(
                         Text("ANDROID", fontSize = 9.sp, color = Cyan, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { page = "TransferModes" }) {
-                        Icon(Icons.Outlined.Add, contentDescription = "Choose transfer mode", tint = Cyan)
+                    IconButton(onClick = { drawerOpen = !drawerOpen }) {
+                        Text(if (drawerOpen) "×" else "☰", color = Cyan, fontSize = 27.sp, fontWeight = FontWeight.Light)
                     }
                 }
                 Spacer(Modifier.height(22.dp))
                 when (page) {
-                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, installedApps, onPickFiles, { page = "Files" }, { page = "TransferModes" })
+                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, installedApps, onPickFiles, { page = "AndroidToPc"; homeActionsVisible = false })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaHubScreen(onImages = { page = "Images" }, onVideos = { page = "Videos" }, onAudio = { page = "Audio" })
                     "Images" -> MediaStoreScreen("Images", mediaFiles["Images"].orEmpty(), pickedFiles,
-                        { onLoadMedia("Images") }, onAddMedia, onPickMedia)
+                        { onLoadMedia("Images") }, { item ->
+                            if (pickedFiles.any { it.uri == item.uri }) onRemovePicked(item) else onAddMedia(item)
+                        }, onPickMedia)
                     "Videos" -> MediaStoreScreen("Videos", mediaFiles["Videos"].orEmpty(), pickedFiles,
-                        { onLoadMedia("Videos") }, onAddMedia, onPickMedia)
+                        { onLoadMedia("Videos") }, { item ->
+                            if (pickedFiles.any { it.uri == item.uri }) onRemovePicked(item) else onAddMedia(item)
+                        }, onPickMedia)
                     "Audio" -> MediaStoreScreen("Audio", mediaFiles["Audio"].orEmpty(), pickedFiles,
-                        { onLoadMedia("Audio") }, onAddMedia, onPickMedia)
+                        { onLoadMedia("Audio") }, { item ->
+                            if (pickedFiles.any { it.uri == item.uri }) onRemovePicked(item) else onAddMedia(item)
+                        }, onPickMedia)
                     "TransferModes" -> TransferModeChooser(
                         onAndroidToAndroid = { page = "AndroidToAndroid" },
                         onAndroidToPc = { page = "AndroidToPc" }
@@ -250,12 +286,43 @@ private fun PlazmaApp(
                     else -> InfoScreen("Settings", "Choose your receive folder, theme, notifications and trusted devices here in a future update.")
                 }
             }
+            AnimatedVisibility(
+                visible = page == "Home" && homeActionsVisible,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 22.dp, vertical = 12.dp),
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }) + scaleIn(initialScale = 0.22f),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it }) + scaleOut(targetScale = 0.12f)
+            ) {
+                Row(Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(20.dp)), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { page = "AndroidToPc"; homeActionsVisible = false }, modifier = Modifier.weight(1f).height(58.dp), shape = RoundedCornerShape(17.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF20D99A), contentColor = Color(0xFF061B18))) { Text("↗  SEND", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp) }
+                    Button(onClick = { page = "Files"; homeActionsVisible = false }, modifier = Modifier.weight(1f).height(58.dp), shape = RoundedCornerShape(17.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF275A91), contentColor = Color.White)) { Text("↓  RECEIVE", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp) }
+                }
+            }
+            }
+        }
+        if (drawerOpen) Box(Modifier.fillMaxSize().background(Color(0x66030A16)).clickable { drawerOpen = false })
+        Column(
+            Modifier.align(Alignment.CenterEnd).width(250.dp).fillMaxHeight().offset(x = drawerOffset)
+                .shadow(24.dp, RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp))
+                .clip(RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp))
+                .background(Brush.verticalGradient(listOf(Color(0xFF20395E), Color(0xFF10182D), Color(0xFF080D1B))))
+                .padding(20.dp)
+        ) {
+            Spacer(Modifier.height(26.dp))
+            Text("PLAZMA MENU", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(24.dp))
+            ActionCard("Activity", "Transfers and import history", { page = "Activity"; drawerOpen = false; homeActionsVisible = false }, Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            ActionCard("Settings", "App preferences and trusted devices", { page = "Settings"; drawerOpen = false; homeActionsVisible = false }, Modifier.fillMaxWidth())
+            Spacer(Modifier.weight(1f))
+            Text("PLAZMA S · ANDROID", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+            Spacer(Modifier.height(20.dp))
+        }
         }
     }
 }
 
 @Composable
-private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<com.plazmas.android.transfer.InstalledAppEntry>, onPick: () -> Unit, onReceived: () -> Unit, onTransfer: () -> Unit) {
+private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<com.plazmas.android.transfer.InstalledAppEntry>, onPick: () -> Unit, onTransfer: () -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 22.dp)) {
         item {
             Box(Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(
@@ -313,6 +380,32 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<c
                 Spacer(Modifier.height(9.dp))
                 Text("SAME WI-FI · ENCRYPTED CONNECTION · APPROVAL REQUIRED", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
             }
+        }
+    }
+}
+
+
+@Composable
+private fun ChainLinkGlyph(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val stroke = Stroke(width = 4.5.dp.toPx())
+        rotate(-38f, pivot = Offset(size.width * 0.38f, size.height * 0.57f)) {
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(size.width * 0.04f, size.height * 0.34f),
+                size = Size(size.width * 0.55f, size.height * 0.43f),
+                cornerRadius = CornerRadius(size.height * 0.22f),
+                style = stroke
+            )
+        }
+        rotate(-38f, pivot = Offset(size.width * 0.64f, size.height * 0.43f)) {
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(size.width * 0.41f, size.height * 0.23f),
+                size = Size(size.width * 0.55f, size.height * 0.43f),
+                cornerRadius = CornerRadius(size.height * 0.22f),
+                style = stroke
+            )
         }
     }
 }
