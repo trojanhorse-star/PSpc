@@ -18,6 +18,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,6 +40,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -187,6 +193,7 @@ private fun PlazmaApp(
 ) {
     var page by remember { mutableStateOf("Home") }
     var drawerOpen by remember { mutableStateOf(false) }
+    var homeActionsVisible by remember { mutableStateOf(false) }
     val screenOffset by animateDpAsState(if (drawerOpen) (-238).dp else 0.dp, label = "rightDrawerPush")
     val drawerOffset by animateDpAsState(if (drawerOpen) 0.dp else 250.dp, label = "rightDrawerSlide")
     MaterialTheme(colorScheme = darkColorScheme(
@@ -199,23 +206,23 @@ private fun PlazmaApp(
             containerColor = Night,
             bottomBar = {
                 NavigationBar(containerColor = Color(0xFF101A30), contentColor = Muted, tonalElevation = 12.dp) {
-                    NavigationBarItem(selected = page == "Files", onClick = { page = "Files"; drawerOpen = false },
+                    NavigationBarItem(selected = page == "Files", onClick = { page = "Files"; drawerOpen = false; homeActionsVisible = false },
                         icon = { Icon(Icons.Outlined.FolderOpen, contentDescription = "Files") }, label = { Text("Files", fontSize = 9.sp) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Cyan, selectedTextColor = Cyan, indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted))
-                    NavigationBarItem(selected = page == "Images", onClick = { page = "Images"; onLoadMedia("Images"); drawerOpen = false },
+                    NavigationBarItem(selected = page == "Images", onClick = { page = "Images"; onLoadMedia("Images"); drawerOpen = false; homeActionsVisible = false },
                         icon = { Icon(Icons.Outlined.Image, contentDescription = "Images") }, label = { Text("Images", fontSize = 9.sp) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Cyan, selectedTextColor = Cyan, indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted))
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Surface(onClick = { page = "Home"; drawerOpen = false },
-                            modifier = Modifier.size(58.dp).offset(y = (-9).dp).shadow(16.dp, CircleShape),
-                            shape = CircleShape, color = Color(0xFF20D99A), contentColor = Color(0xFF061B18)) {
-                            Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Home, contentDescription = "Home", modifier = Modifier.size(27.dp)) }
+                        Surface(onClick = { page = "Home"; drawerOpen = false; homeActionsVisible = true },
+                            modifier = Modifier.width(78.dp).height(48.dp).offset(y = (-7).dp).shadow(16.dp, RoundedCornerShape(28.dp)),
+                            shape = RoundedCornerShape(28.dp), color = Color(0xFF079B69), contentColor = Color.White) {
+                            Box(contentAlignment = Alignment.Center) { ChainLinkGlyph(Modifier.size(width = 42.dp, height = 30.dp)) }
                         }
                     }
-                    NavigationBarItem(selected = page == "Videos", onClick = { page = "Videos"; onLoadMedia("Videos"); drawerOpen = false },
+                    NavigationBarItem(selected = page == "Videos", onClick = { page = "Videos"; onLoadMedia("Videos"); drawerOpen = false; homeActionsVisible = false },
                         icon = { Text("▶", color = if (page == "Videos") Cyan else Muted, fontSize = 18.sp) }, label = { Text("Videos", fontSize = 9.sp) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Cyan, selectedTextColor = Cyan, indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted))
-                    NavigationBarItem(selected = page == "Audio", onClick = { page = "Audio"; onLoadMedia("Audio"); drawerOpen = false },
+                    NavigationBarItem(selected = page == "Audio", onClick = { page = "Audio"; onLoadMedia("Audio"); drawerOpen = false; homeActionsVisible = false },
                         icon = { Text("♫", color = if (page == "Audio") Cyan else Muted, fontSize = 19.sp) }, label = { Text("Audio", fontSize = 9.sp) },
                         colors = NavigationBarItemDefaults.colors(selectedIconColor = Cyan, selectedTextColor = Cyan, indicatorColor = Color(0xFF16344C), unselectedIconColor = Muted))
                 }
@@ -241,7 +248,7 @@ private fun PlazmaApp(
                 }
                 Spacer(Modifier.height(22.dp))
                 when (page) {
-                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, installedApps, onPickFiles, { page = "Files" }, { page = "TransferModes" })
+                    "Home" -> HomeScreen(pickedFiles.size, receivedFiles.size, installedApps, homeActionsVisible, onPickFiles, { page = "Files"; homeActionsVisible = false }, { page = "TransferModes"; homeActionsVisible = false })
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaHubScreen(onImages = { page = "Images" }, onVideos = { page = "Videos" }, onAudio = { page = "Audio" })
                     "Images" -> MediaStoreScreen("Images", mediaFiles["Images"].orEmpty(), pickedFiles,
@@ -272,9 +279,9 @@ private fun PlazmaApp(
             Spacer(Modifier.height(26.dp))
             Text("PLAZMA MENU", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(24.dp))
-            ActionCard("Activity", "Transfers and import history", { page = "Activity"; drawerOpen = false }, Modifier.fillMaxWidth())
+            ActionCard("Activity", "Transfers and import history", { page = "Activity"; drawerOpen = false; homeActionsVisible = false }, Modifier.fillMaxWidth())
             Spacer(Modifier.height(10.dp))
-            ActionCard("Settings", "App preferences and trusted devices", { page = "Settings"; drawerOpen = false }, Modifier.fillMaxWidth())
+            ActionCard("Settings", "App preferences and trusted devices", { page = "Settings"; drawerOpen = false; homeActionsVisible = false }, Modifier.fillMaxWidth())
             Spacer(Modifier.weight(1f))
             Text("PLAZMA S · ANDROID", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
             Spacer(Modifier.height(20.dp))
@@ -284,7 +291,7 @@ private fun PlazmaApp(
 }
 
 @Composable
-private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<com.plazmas.android.transfer.InstalledAppEntry>, onPick: () -> Unit, onReceived: () -> Unit, onTransfer: () -> Unit) {
+private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<com.plazmas.android.transfer.InstalledAppEntry>, showHomeActions: Boolean, onPick: () -> Unit, onReceived: () -> Unit, onTransfer: () -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(bottom = 22.dp)) {
         item {
             Box(Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(26.dp)).clip(RoundedCornerShape(26.dp)).background(
@@ -306,7 +313,7 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<c
             }
         }
         item {
-            AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 })) {
+            AnimatedVisibility(visible = showHomeActions, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 })) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = onTransfer, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF20D99A), contentColor = Color(0xFF061B18))) {
@@ -356,6 +363,32 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<c
                 Spacer(Modifier.height(9.dp))
                 Text("SAME WI-FI · ENCRYPTED CONNECTION · APPROVAL REQUIRED", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
             }
+        }
+    }
+}
+
+
+@Composable
+private fun ChainLinkGlyph(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val stroke = Stroke(width = 4.5.dp.toPx())
+        rotate(-38f, pivot = Offset(size.width * 0.38f, size.height * 0.57f)) {
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(size.width * 0.04f, size.height * 0.34f),
+                size = Size(size.width * 0.55f, size.height * 0.43f),
+                cornerRadius = CornerRadius(size.height * 0.22f),
+                style = stroke
+            )
+        }
+        rotate(-38f, pivot = Offset(size.width * 0.64f, size.height * 0.43f)) {
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(size.width * 0.41f, size.height * 0.23f),
+                size = Size(size.width * 0.55f, size.height * 0.43f),
+                cornerRadius = CornerRadius(size.height * 0.22f),
+                style = stroke
+            )
         }
     }
 }
