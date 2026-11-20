@@ -1,6 +1,7 @@
 package com.plazmas.android
 
 import android.Manifest
+import android.content.Intent
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
@@ -15,11 +16,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.VideoLibrary
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -108,11 +116,12 @@ fun MediaStoreScreen(
     media: List<PickedFile>,
     selected: List<PickedFile>,
     onLoadMedia: () -> Unit,
-    onAddToTransfer: (PickedFile) -> Unit,
+    onToggleSelection: (PickedFile) -> Unit,
     onPickMedia: (String) -> Unit
 ) {
     val context = LocalContext.current
     var denied by remember(category) { mutableStateOf(false) }
+    var search by remember(category) { mutableStateOf("") }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
@@ -124,13 +133,50 @@ fun MediaStoreScreen(
     LaunchedEffect(category) {
         if (MediaStoreLibrary.hasPermission(context, category)) onLoadMedia()
     }
+    val filtered = remember(media, search) {
+        media.filter { it.name.contains(search.trim(), ignoreCase = true) }
+    }
+    val selectedUris = selected.map { it.uri }.toSet()
 
     Column(Modifier.fillMaxSize()) {
-        Text(category.uppercase(), color = Color(0xFF69E8FF), style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(8.dp))
-        Text("Browse media already on this phone. Plazma S only reads items Android makes available in this library.",
-            color = Color(0xFF9AA8C4), style = MaterialTheme.typography.bodySmall)
-        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("ON THIS DEVICE · ${category.uppercase()}", color = Color(0xFFB9D9F3),
+                style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+            IconButton(onClick = onLoadMedia) {
+                Icon(Icons.Outlined.Refresh, contentDescription = "Refresh", tint = Color(0xFF69E8FF))
+            }
+        }
+        OutlinedTextField(
+            value = search,
+            onValueChange = { search = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("Search device ${if (category == "Audio") "music" else category.lowercase()}") },
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF69E8FF),
+                unfocusedBorderColor = Color(0xFF617B9A),
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                cursorColor = Color(0xFF69E8FF)
+            )
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { filtered.filter { it.uri !in selectedUris }.forEach(onToggleSelection) }) {
+                Text("Select all", color = Color(0xFF70CFFF))
+            }
+            TextButton(onClick = { selected.filter { item -> media.any { it.uri == item.uri } }.forEach(onToggleSelection) }) {
+                Text("Clear selection", color = Color(0xFF70CFFF))
+            }
+            Spacer(Modifier.weight(1f))
+            Text("${filtered.count { it.uri in selectedUris }} selected", color = Color(0xFF9AA8C4),
+                style = MaterialTheme.typography.labelSmall)
+        }
+        Text("Showing ${filtered.size} of ${media.size}", color = Color(0xFFB9D9F3),
+            style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(vertical = 7.dp))
+
         if (!MediaStoreLibrary.hasPermission(context, category)) {
             Button(onClick = { permissionLauncher.launch(MediaStoreLibrary.requiredPermissions(category)) }) {
                 Text(if (denied) "Try permission again" else "Allow access to $category")
@@ -140,39 +186,86 @@ fun MediaStoreScreen(
                 Text("Access was not granted. You can still use the optional file picker in Files.",
                     color = Color(0xFFAA91FF), style = MaterialTheme.typography.bodySmall)
             }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("${media.size} items", color = Color(0xFF69E8FF), modifier = Modifier.weight(1f))
-                TextButton(onClick = onLoadMedia) { Text("Refresh") }
+        } else if (filtered.isEmpty()) {
+            Column(Modifier.fillMaxWidth().weight(1f).padding(top = 30.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(if (media.isEmpty()) "No $category found" else "No matching items", color = Color.White)
+                Spacer(Modifier.height(6.dp))
+                Text("Your device library updates when you refresh this section.",
+                    color = Color(0xFF9AA8C4), style = MaterialTheme.typography.bodySmall)
             }
-            if (media.isEmpty()) {
-                Column(Modifier.fillMaxWidth().padding(top = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("No $category found")
-                    Spacer(Modifier.height(6.dp))
-                    Text("New items appear here automatically when you reopen or refresh this section.",
-                        color = Color(0xFF9AA8C4), style = MaterialTheme.typography.bodySmall)
-                }
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
-                    items(media, key = { it.uri.toString() }) { item ->
-                        val alreadySelected = selected.any { it.uri == item.uri }
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFF172A47)).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            MediaStoreThumbnail(item, category)
-                            Spacer(Modifier.width(11.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(item.name, color = Color.White, maxLines = 1)
-                                Text(formatSize(item.size), color = Color(0xFF9AA8C4), style = MaterialTheme.typography.labelSmall)
+        } else if (category == "Audio") {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(bottom = 18.dp)
+            ) {
+                items(filtered, key = { it.uri.toString() }) { item ->
+                    val isSelected = item.uri in selectedUris
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                            .background(Color(0xFF172A47)).padding(horizontal = 10.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(48.dp).clip(CircleShape).background(Color(0xFF263D77)),
+                            contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = Color(0xFFB4C4FF))
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.name, color = Color.White, maxLines = 1)
+                            Text("Unknown artist · ${formatSize(item.size)}", color = Color(0xFF9AA8C4),
+                                style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                        }
+                        IconButton(onClick = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(item.uri,
+                                    item.mime ?: "audio/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
                             }
-                            TextButton(onClick = { onAddToTransfer(item) }, enabled = !alreadySelected) {
-                                Text(if (alreadySelected) "Added" else "Add")
-                            }
+                        }) {
+                            Icon(Icons.Outlined.PlayArrow, contentDescription = "Play audio", tint = Color(0xFFE3E9FF))
+                        }
+                        SelectionCircle(isSelected) { onToggleSelection(item) }
+                        IconButton(onClick = { }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = "More options", tint = Color(0xFF9AA8C4))
                         }
                     }
                 }
             }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 18.dp)
+            ) {
+                gridItems(filtered, key = { it.uri.toString() }) { item ->
+                    val isSelected = item.uri in selectedUris
+                    Box(Modifier.aspectRatio(1f).clip(RoundedCornerShape(15.dp))
+                        .background(Color(0xFF203A5D))) {
+                        MediaStoreThumbnail(item, category)
+                        if (category == "Videos") {
+                            Box(Modifier.align(Alignment.Center).size(42.dp).clip(CircleShape)
+                                .background(Color(0xEFFFFFFF)), contentAlignment = Alignment.Center) {
+                                Text("▶", color = Color(0xFF111827), style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                        SelectionCircle(isSelected, Modifier.align(Alignment.BottomEnd).padding(6.dp)) {
+                            onToggleSelection(item)
+                        }
+                        Box(Modifier.matchParentSize().clickable {
+                            if (category == "Videos") {
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(item.uri,
+                                        item.mime ?: "video/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                                }
+                            } else onToggleSelection(item)
+                        })
+                    }
+                }
+            }
         }
-        Spacer(Modifier.height(8.dp))
         TextButton(onClick = {
             val mime = when (category) {
                 "Images" -> "image/*"
@@ -180,7 +273,23 @@ fun MediaStoreScreen(
                 else -> "audio/*"
             }
             onPickMedia(mime)
-        }) { Text("Choose files instead") }
+        }, modifier = Modifier.align(Alignment.End)) { Text("Choose files instead", color = Color(0xFF69E8FF)) }
+    }
+}
+
+@Composable
+private fun SelectionCircle(selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(modifier.size(28.dp).clip(CircleShape)
+        .background(if (selected) Color(0xFF087C62) else Color(0xB907101C))
+        .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center) {
+        if (selected) Text("✓", color = Color.White, style = MaterialTheme.typography.labelMedium)
+        else Box(Modifier.size(17.dp).clip(CircleShape).background(Color.Transparent)
+            .then(Modifier.padding(1.dp))) {
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                drawCircle(color = Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+            }
+        }
     }
 }
 
