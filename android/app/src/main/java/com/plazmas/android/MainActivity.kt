@@ -265,11 +265,17 @@ private fun PlazmaApp(
                     "Files" -> FilesScreen(pickedFiles, receivedFiles, onPickFiles, onRemovePicked)
                     "Media" -> MediaHubScreen(onImages = { page = "Images" }, onVideos = { page = "Videos" }, onAudio = { page = "Audio" })
                     "Images" -> MediaStoreScreen("Images", mediaFiles["Images"].orEmpty(), pickedFiles,
-                        { onLoadMedia("Images") }, onAddMedia, onPickMedia)
+                        { onLoadMedia("Images") }, { item ->
+                            if (pickedFiles.any { it.uri == item.uri }) onRemovePicked(item) else onAddMedia(item)
+                        }, onPickMedia)
                     "Videos" -> MediaStoreScreen("Videos", mediaFiles["Videos"].orEmpty(), pickedFiles,
-                        { onLoadMedia("Videos") }, onAddMedia, onPickMedia)
+                        { onLoadMedia("Videos") }, { item ->
+                            if (pickedFiles.any { it.uri == item.uri }) onRemovePicked(item) else onAddMedia(item)
+                        }, onPickMedia)
                     "Audio" -> MediaStoreScreen("Audio", mediaFiles["Audio"].orEmpty(), pickedFiles,
-                        { onLoadMedia("Audio") }, onAddMedia, onPickMedia)
+                        { onLoadMedia("Audio") }, { item ->
+                            if (pickedFiles.any { it.uri == item.uri }) onRemovePicked(item) else onAddMedia(item)
+                        }, onPickMedia)
                     "TransferModes" -> TransferModeChooser(
                         onAndroidToAndroid = { page = "AndroidToAndroid" },
                         onAndroidToPc = { page = "AndroidToPc" }
