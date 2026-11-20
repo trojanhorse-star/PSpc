@@ -243,7 +243,12 @@ fun MediaStoreScreen(
                 gridItems(filtered, key = { it.uri.toString() }) { item ->
                     val isSelected = item.uri in selectedUris
                     Box(Modifier.aspectRatio(1f).clip(RoundedCornerShape(15.dp))
-                        .background(Color(0xFF203A5D))) {
+                        .background(Color(0xFF203A5D)).clickable {
+                            if (category == "Videos") runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(item.uri,
+                                    item.mime ?: "video/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                            } else onToggleSelection(item)
+                        }) {
                         MediaStoreThumbnail(item, category)
                         if (category == "Videos") {
                             Box(Modifier.align(Alignment.Center).size(42.dp).clip(CircleShape)
@@ -254,14 +259,6 @@ fun MediaStoreScreen(
                         SelectionCircle(isSelected, Modifier.align(Alignment.BottomEnd).padding(6.dp)) {
                             onToggleSelection(item)
                         }
-                        Box(Modifier.matchParentSize().clickable {
-                            if (category == "Videos") {
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(item.uri,
-                                        item.mime ?: "video/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
-                                }
-                            } else onToggleSelection(item)
-                        })
                     }
                 }
             }
@@ -304,7 +301,7 @@ private fun MediaStoreThumbnail(item: PickedFile, category: String) {
             }
         }
     }
-    Box(Modifier.size(54.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF203A5D)),
+    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Color(0xFF203A5D)),
         contentAlignment = Alignment.Center) {
         if (bitmap != null) {
             Image(bitmap!!.asImageBitmap(), contentDescription = item.name, modifier = Modifier.fillMaxSize(),
