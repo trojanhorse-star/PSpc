@@ -313,20 +313,6 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<c
             }
         }
         item {
-            AnimatedVisibility(visible = showHomeActions, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 })) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = onTransfer, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF20D99A), contentColor = Color(0xFF061B18))) {
-                        Text("↗  SEND", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
-                    }
-                    Button(onClick = onReceived, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF275A91), contentColor = Color.White)) {
-                        Text("↓  RECEIVE", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
-                    }
-                }
-            }
-        }
-        item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatCard("Selected", fileCount.toString(), Modifier.weight(1f))
                 StatCard("Received", receivedCount.toString(), Modifier.weight(1f))
@@ -346,6 +332,20 @@ private fun HomeScreen(fileCount: Int, receivedCount: Int, installedApps: List<c
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Top) {
                     appRow.forEach { app -> InstalledAppTile(app, Modifier.weight(1f)) }
                     repeat(4 - appRow.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+        item {
+            AnimatedVisibility(visible = showHomeActions, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 })) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = onTransfer, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF20D99A), contentColor = Color(0xFF061B18))) {
+                        Text("↗  SEND", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                    }
+                    Button(onClick = onReceived, modifier = Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF275A91), contentColor = Color.White)) {
+                        Text("↓  RECEIVE", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                    }
                 }
             }
         }
